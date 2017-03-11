@@ -1,0 +1,3 @@
+package: play-net.org/gorcon-arma
+import:
+- package: github.com/spf13/viper
