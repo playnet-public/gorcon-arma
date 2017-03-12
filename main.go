@@ -9,6 +9,9 @@ import (
 
 	"net"
 
+	"bufio"
+	"io"
+
 	"github.com/golang/glog"
 	"github.com/spf13/viper"
 )
@@ -52,9 +55,19 @@ func do() error {
 	}
 
 	client := rcon.New(becfg)
+
+	r, w := io.Pipe()
+	client.SetEventWriter(w)
+	client.SetChatWriter(w)
+
 	err = client.Connect()
 	if err != nil {
 		return err
+	}
+
+	scanner := bufio.NewScanner(r)
+	for scanner.Scan() {
+		fmt.Printf("RCON: %s", scanner.Text())
 	}
 	return nil
 }
