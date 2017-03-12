@@ -146,18 +146,27 @@ func (c *Client) Connect() (err error) {
 		return err
 	}
 	if response == packetResponse.LoginFail {
+		glog.Errorln("Non Login Packet Received:", response)
 		c.con.Close()
 		return ErrInvalidLogin
 	}
 
+	c.waitGroup = sync.WaitGroup{}
+	c.waitGroup.Add(1)
 	c.lastPacketTime = time.Now()
 	c.ready = true
 	c.currentSequence = 0
 
-	c.waitGroup = sync.WaitGroup{}
 	go c.loop()
 
 	return nil
+}
+
+//QueueCommand to execute it
+func (c *Client) QueueCommand(cmd []byte, w io.WriteCloser) {
+	c.packetQueue.Lock()
+	c.packetQueue.queue = append(c.packetQueue.queue, transmission{command: cmd, writeCloser: w})
+	c.packetQueue.Unlock()
 }
 
 //Disconnect the Client
