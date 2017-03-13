@@ -11,10 +11,12 @@ import (
 var packetType = struct {
 	Login         byte
 	Command       byte
+	MultiCommand  byte
 	ServerMessage byte
 }{
 	Login:         0x00,
 	Command:       0x01,
+	MultiCommand:  0x00,
 	ServerMessage: 0x02,
 }
 
@@ -34,9 +36,11 @@ func buildHeader(checksum uint32) []byte {
 	return append([]byte{}, 'B', 'E', check[0], check[1], check[2], check[3])
 }
 
-func stripHeader(data []byte) []byte {
-	//TODO: Evaluate len check
-	return data[6:]
+func stripHeader(data []byte) ([]byte, error) {
+	if len(data) < 7 {
+		return []byte{}, errors.New("Invalid Packet Size, no Header found")
+	}
+	return data[6:], nil
 }
 
 func makeChecksum(data []byte) uint32 {
@@ -124,8 +128,11 @@ func verifyPacket(packet []byte) (seq byte, data []byte, pckType byte, err error
 		return
 	}
 	seq = getSequence(packet)
-	data = stripHeader(packet)
-	pckType, err = responseType(data)
+	data, err = stripHeader(packet)
+	if err != nil {
+		return
+	}
+	pckType, err = responseType(packet)
 	return
 }
 

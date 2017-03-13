@@ -12,6 +12,8 @@ import (
 	"bufio"
 	"io"
 
+	"time"
+
 	"github.com/golang/glog"
 	"github.com/spf13/viper"
 )
@@ -64,10 +66,14 @@ func do() error {
 	if err != nil {
 		return err
 	}
-
+	var wcl io.WriteCloser
 	scanner := bufio.NewScanner(r)
+	go func(w io.WriteCloser) {
+		time.Sleep(time.Second * 2)
+		client.QueueCommand([]byte("#restartserver"), w)
+	}(wcl)
 	for scanner.Scan() {
-		fmt.Printf("RCON: %s", scanner.Text())
+		glog.Errorf("RCON: %s", scanner.Text())
 	}
 	return nil
 }
