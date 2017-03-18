@@ -1,17 +1,31 @@
 package procwatch
 
 import (
+	"encoding/json"
+	"io/ioutil"
 	"os/exec"
 	"path"
 	"sync"
 	"time"
+
+	"fmt"
+
+	"github.com/golang/glog"
+	"github.com/robfig/cron"
 )
+
+type SchedulerPath string
 
 //Config contains all data required by Procwatch
 type Config struct {
 	A3exe    string
 	A3par    string
-	Schedule []SchedulerEntity
+	Schedule Schedule
+	Timezone int
+}
+
+type Schedule struct {
+	Schedule []SchedulerEntity `json:"schedule"`
 }
 
 //SchedulerEntity all data required by Procwatch
@@ -21,6 +35,22 @@ type SchedulerEntity struct {
 	Day     string `json:"day"`
 	Hour    string `json:"hour"`
 	Minute  string `json:"minute"`
+}
+
+func (sc SchedulerPath) Parse() (*Schedule, error) {
+	content, err := ioutil.ReadFile(string(sc))
+	if err != nil {
+		return nil, err
+	}
+	return parseConfig(content)
+}
+
+func parseConfig(content []byte) (*Schedule, error) {
+	config := &Schedule{}
+	if err := json.Unmarshal(content, config); err != nil {
+		return nil, err
+	}
+	return config, nil
 }
 
 //GetConfig retunrs WatcherConfig
@@ -40,6 +70,8 @@ type Watcher struct {
 	pid       uint32
 	waitGroup sync.WaitGroup
 	cmd       *exec.Cmd
+	schedule  Schedule
+	cron      cron.Cron
 }
 
 //New creates a Procwatch with given Config
@@ -47,8 +79,10 @@ func New(wat WatcherCfg) *Watcher {
 	cfg := wat.GetConfig()
 
 	return &Watcher{
-		a3exe: cfg.A3exe,
-		a3par: cfg.A3par,
+		a3exe:    cfg.A3exe,
+		a3par:    cfg.A3par,
+		schedule: cfg.Schedule,
+		cron:     *cron.New(),
 	}
 }
 
@@ -62,9 +96,44 @@ func (w *Watcher) Start() {
 		w.waitGroup = sync.WaitGroup{}
 		w.waitGroup.Add(1)
 		go w.wait()
+		err = w.buildJobs()
+		if err != nil {
+			glog.Error(err)
+		}
 	} else {
 		return
 	}
+}
+
+func (w *Watcher) buildJobs() error {
+	scheduleArr := w.schedule.Schedule
+	for index := 0; index < len(scheduleArr); index++ {
+		scheduleEntry := scheduleArr[index]
+		command := scheduleEntry.Command
+		restart := scheduleEntry.Restart
+		day := scheduleEntry.Day
+		hour := scheduleEntry.Hour
+		minute := scheduleEntry.Minute
+		glog.Info(fmt.Sprintf("%s %s * * %s", minute, hour, day))
+		if restart {
+			err := w.cron.AddFunc(fmt.Sprintf("0 %s %s * * %s", minute, hour, day), func() {
+				glog.Info("Theoretischer Neustart per Scheduler")
+			})
+			if err != nil {
+				return err
+			}
+		} else {
+			err := w.cron.AddFunc(fmt.Sprintf("0 %s %s * * %s", minute, hour, day), func() {
+				glog.Info(command)
+			})
+			if err != nil {
+				return err
+			}
+		}
+
+	}
+	w.cron.Start()
+	return nil
 }
 
 //Wait for Server exit

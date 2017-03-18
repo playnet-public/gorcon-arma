@@ -5,14 +5,7 @@ import (
 	"fmt"
 	"runtime"
 
-	"play-net.org/gorcon-arma/rcon"
-
-	"net"
-
-	"bufio"
-	"io"
-
-	"time"
+	"play-net.org/gorcon-arma/procwatch"
 
 	"github.com/golang/glog"
 	"github.com/spf13/viper"
@@ -45,35 +38,31 @@ func do() error {
 	// Placeholder for Log Test and Init Information
 	glog.Infof("Using Server IP: %s", cfg.GetString("arma.ip"))
 	glog.Infof("Using Server Port: %s", cfg.GetString("arma.port"))
-	udpadr, err := net.ResolveUDPAddr("udp", cfg.GetString("arma.ip")+":"+cfg.GetString("arma.port"))
+	/*udpadr, err := net.ResolveUDPAddr("udp", cfg.GetString("arma.ip")+":"+cfg.GetString("arma.port"))
 	if err != nil {
 		glog.Errorln("Could not convert ArmA IP and Port")
 		return err
-	}
-	becfg := rcon.Config{
-		Addr:           udpadr,
-		Password:       cfg.GetString("arma.password"),
-		KeepAliveTimer: 10,
-	}
+	}*/
+	if cfg.GetBool("scheduler.enabled") {
+		schedulerPath := procwatch.SchedulerPath(cfg.GetString("scheduler.path"))
+		schedulerEntity, err := schedulerPath.Parse()
+		if err != nil {
+			return err
+		}
+		pwcfg := procwatch.Config{
+			A3exe:    cfg.GetString("arma.path"),
+			A3par:    cfg.GetString("arma.param"),
+			Schedule: *schedulerEntity,
+			Timezone: cfg.GetInt("scheduler.timezone"),
+		}
 
-	client := rcon.New(becfg)
-
-	r, w := io.Pipe()
-	client.SetEventWriter(w)
-	client.SetChatWriter(w)
-
-	err = client.Connect()
-	if err != nil {
-		return err
-	}
-	var wcl io.WriteCloser
-	scanner := bufio.NewScanner(r)
-	go func(w io.WriteCloser) {
-		time.Sleep(time.Second * 2)
-		client.QueueCommand([]byte("#restartserver"), w)
-	}(wcl)
-	for scanner.Scan() {
-		glog.Errorf("RCON: %s", scanner.Text())
+		watcher := procwatch.New(pwcfg)
+		watcher.Start()
+		for {
+			//Alex ist der beste!
+		}
+	} else {
+		glog.Info("Scheduler disabled!")
 	}
 	return nil
 }

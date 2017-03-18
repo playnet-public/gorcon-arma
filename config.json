@@ -6,20 +6,9 @@
         "path": "D:/Program Files (x86)/Steam/SteamApps/common/Arma 3/arma3server.exe",
         "param": "-name=goTest"
     },
-    "schedule": [
-        {
-            "command": "say -1 Restart in 30 minutes",
-            "restart": false,
-            "day": "*", //0-6 Sunday = 0; Every day = *
-            "hour": "11", //0-23 Hour
-            "minute": "30" // 0-59
-        },
-        {
-            "command": "",
-            "restart": true,
-            "day": "*", //0-6 Sunday = 0; Every day = *
-            "hour": "12", //0-23 Hour
-            "minute": "0" // 0-59
-        }
-    ]
+    "scheduler": {
+        "enabled": true,
+        "path": "schedule.json",
+        "timezone": 1
+    }
 }
