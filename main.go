@@ -36,33 +36,29 @@ func do() error {
 	cfg := getConfig()
 
 	// Placeholder for Log Test and Init Information
-	glog.Infof("Using Server IP: %s", cfg.GetString("arma.ip"))
-	glog.Infof("Using Server Port: %s", cfg.GetString("arma.port"))
-	/*udpadr, err := net.ResolveUDPAddr("udp", cfg.GetString("arma.ip")+":"+cfg.GetString("arma.port"))
-	if err != nil {
-		glog.Errorln("Could not convert ArmA IP and Port")
-		return err
-	}*/
+
+	// TODO: Refactor so scheduler and watcher are enabled seperately
 	if cfg.GetBool("scheduler.enabled") {
-		schedulerPath := procwatch.SchedulerPath(cfg.GetString("scheduler.path"))
+		glog.Infof("Scheduler is enabled")
+		schedulerPath := procwatch.SchedulePath(cfg.GetString("scheduler.path"))
 		schedulerEntity, err := schedulerPath.Parse()
 		if err != nil {
 			return err
 		}
-		pwcfg := procwatch.Config{
+		pwcfg := procwatch.Cfg{
 			A3exe:    cfg.GetString("arma.path"),
 			A3par:    cfg.GetString("arma.param"),
 			Schedule: *schedulerEntity,
-			Timezone: cfg.GetInt("scheduler.timezone"),
+			//Timezone: cfg.GetInt("scheduler.timezone"),
 		}
 
 		watcher := procwatch.New(pwcfg)
 		watcher.Start()
-		for {
-			//Alex ist der beste!
-		}
 	} else {
-		glog.Info("Scheduler disabled!")
+		glog.Info("Scheduler is disabled")
+	}
+
+	for {
 	}
 	return nil
 }
