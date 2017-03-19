@@ -1,0 +1,14 @@
+#!/bin/sh
+
+set -e
+
+USER="gorcon"
+GROUP="gorcon"
+SERVICE="gorcon-arma.service"
+
+if [ -d /run/systemd/system ]; then
+	systemctl --system daemon-reload >/dev/null || true
+	deb-systemd-invoke stop $SERVICE >/dev/null || true
+fi
+
+exit 0

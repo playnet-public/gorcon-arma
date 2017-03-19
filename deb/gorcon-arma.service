@@ -1,0 +1,14 @@
+[Unit]
+Description=GoRcon-ArmA
+After=network.target
+
+[Service]
+User=gorcon
+Group=gorcon
+LimitNOFILE=4096
+LimitNPROC=4096
+ExecStart=/opt/play-net/gorcon-arma/bin/gorcon-arma -logtostderr -v=1
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
