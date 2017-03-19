@@ -4,7 +4,9 @@
         "port": "2301",
         "password": "qwerty",
         "path": "D:/Program Files (x86)/Steam/SteamApps/common/Arma 3/arma3server.exe",
-        "param": "-name=goTest"
+        "param": "-name=goTest",
+        "keepAliveTimer": 10,
+        "keepAliveTolerance": 2
     },
     "scheduler": {
         "enabled": true,

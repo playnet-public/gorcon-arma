@@ -9,9 +9,10 @@ import (
 
 //Config contains all data required by BE Connections
 type Config struct {
-	Addr           *net.UDPAddr
-	Password       string
-	KeepAliveTimer int
+	Addr               *net.UDPAddr
+	Password           string
+	KeepAliveTimer     int
+	KeepAliveTolerance int64
 }
 
 //BeCfg is the Interface providing Configs for the Client
@@ -37,10 +38,11 @@ type transmission struct {
 type Client struct {
 
 	//Config
-	addr             *net.UDPAddr
-	password         string
-	keepAliveTimer   int
-	reconnectTimeout int
+	addr               *net.UDPAddr
+	password           string
+	keepAliveTimer     int
+	keepAliveTolerance int64
+	reconnectTimeout   int
 
 	con        *net.UDPConn
 	readBuffer []byte
@@ -52,13 +54,11 @@ type Client struct {
 		s byte
 	}
 
-	lastPacket struct {
-		sync.Mutex
-		time.Time
-	}
-
 	cmdMap  map[byte]transmission
 	cmdLock sync.Mutex
+
+	keepAliveCount int64
+	pingbackCount  int64
 
 	chatWriter struct {
 		sync.Mutex

@@ -70,9 +70,10 @@ func do() error {
 		return err
 	}
 	becfg := rcon.Config{
-		Addr:           udpadr,
-		Password:       cfg.GetString("arma.password"),
-		KeepAliveTimer: 10,
+		Addr:               udpadr,
+		Password:           cfg.GetString("arma.password"),
+		KeepAliveTimer:     cfg.GetInt("arma.keepAliveTimer"),
+		KeepAliveTolerance: cfg.GetInt64("arma.keepAliveTolerance"),
 	}
 
 	client := rcon.New(becfg)
@@ -88,8 +89,10 @@ func do() error {
 	var wcl io.WriteCloser
 	scanner := bufio.NewScanner(r)
 	go func(w io.WriteCloser) {
-		time.Sleep(time.Second * 30)
-		client.RunCommand([]byte("#restartserver"), w)
+		time.Sleep(time.Second * 10)
+		client.RunCommand([]byte("say -1 hello"), w)
+		time.Sleep(time.Second * 2)
+		client.RunCommand([]byte("say -1 hello"), w)
 	}(wcl)
 	for scanner.Scan() {
 		glog.Errorf("RCON: %s", scanner.Text())

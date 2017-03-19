@@ -66,11 +66,12 @@ func (c *Client) handlePacket(packet []byte) error {
 	}
 
 	if pType != packetType.Command && pType != packetType.MultiCommand {
-		glog.V(3).Infof("Packet: %v - PacketType: %v", string(packet), pType)
+		glog.V(2).Infof("Packet: %v - PacketType: %v", string(packet), pType)
 		return ErrUnknownPacketType
 	}
 
 	packetCount, currentPacket, isMultiPacket := checkMultiPacketResponse(data)
+	glog.V(4).Infof("Packet: %v - Sequence: %v - IsMulti: %v", string(data), seq, isMultiPacket)
 	if !isMultiPacket {
 		c.handleResponse(seq, data[3:], true)
 		return nil

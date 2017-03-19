@@ -3,6 +3,7 @@ package rcon
 import (
 	"io"
 	"net"
+	"sync/atomic"
 	"time"
 
 	"github.com/golang/glog"
@@ -16,14 +17,15 @@ func New(bec BeCfg) *Client {
 	}
 
 	return &Client{
-		addr:             cfg.Addr,
-		password:         cfg.Password,
-		keepAliveTimer:   cfg.KeepAliveTimer,
-		readBuffer:       make([]byte, 4096),
-		reconnectTimeout: 25,
-		looping:          false,
-		cmdChan:          make(chan transmission),
-		cmdMap:           make(map[byte]transmission),
+		addr:               cfg.Addr,
+		password:           cfg.Password,
+		keepAliveTimer:     cfg.KeepAliveTimer,
+		keepAliveTolerance: cfg.KeepAliveTolerance,
+		readBuffer:         make([]byte, 4096),
+		reconnectTimeout:   25,
+		looping:            false,
+		cmdChan:            make(chan transmission),
+		cmdMap:             make(map[byte]transmission),
 	}
 }
 
@@ -69,8 +71,10 @@ func (c *Client) Connect() (err error) {
 	glog.V(2).Infoln("Login successful")
 	if !c.looping {
 		c.looping = true
-		c.lastPacket.Time = time.Now()
+		//c.lastPacket.Time = time.Now()
 		c.sequence.s = 0
+		c.keepAliveCount = 0
+		c.pingbackCount = 0
 		c.cmdLock.Lock()
 		c.cmdMap = make(map[byte]transmission)
 		c.cmdLock.Unlock()
@@ -81,9 +85,10 @@ func (c *Client) Connect() (err error) {
 }
 
 func (c *Client) watcherLoop() {
-	disc := make(chan int)
-	go c.writerLoop(disc, c.cmdChan)
-	go c.readerLoop(disc)
+	writerDisconnect := make(chan int)
+	readerDisconnect := make(chan int)
+	go c.writerLoop(writerDisconnect, c.cmdChan)
+	go c.readerLoop(readerDisconnect)
 	for {
 		if !c.looping {
 			if err := c.Reconnect(); err != nil {
@@ -94,7 +99,20 @@ func (c *Client) watcherLoop() {
 			return
 		}
 		select {
-		case d := <-disc:
+		case d := <-readerDisconnect:
+			c.looping = false
+			glog.V(2).Infoln("Reader disconnected, waiting for Writer")
+			_ = <-writerDisconnect
+			glog.V(2).Infoln("Writer disconnected")
+			glog.Warningf("Trying to recover from broken Connection (close msg: %v)", d)
+			if err := c.Reconnect(); err == nil {
+				return
+			}
+		case d := <-writerDisconnect:
+			c.looping = false
+			glog.V(2).Infoln("Writer disconnected, waiting for Reader")
+			_ = <-readerDisconnect
+			glog.V(2).Infoln("Reader disconnected")
 			glog.Warningf("Trying to recover from broken Connection (close msg: %v)", d)
 			if err := c.Reconnect(); err == nil {
 				return
@@ -107,7 +125,6 @@ func (c *Client) watcherLoop() {
 
 //Reconnect after loops exited
 func (c *Client) Reconnect() error {
-	c.looping = false
 	//c.con.Close()
 	var err error
 	if err = c.Connect(); err == nil {
@@ -146,24 +163,38 @@ func (c *Client) RunCommand(cmd []byte, w io.WriteCloser) {
 }
 
 func (c *Client) handleResponse(seq byte, response []byte, last bool) {
-	if last {
-		/*c.cmdQueue.Lock()
-		if len(c.cmdQueue.queue) == 0 {
-			glog.Warningln("cmdQueue is empty which is unexpected")
-			glog.Warningf("Skipping Response: %v", response)
-			return
+	c.cmdLock.Lock()
+	trm, ex := c.cmdMap[seq]
+	c.cmdLock.Unlock()
+	if !ex {
+		if len(response) == 0 {
+			c.sequence.Lock()
+			se := c.sequence.s
+			c.sequence.Unlock()
+			if se == seq {
+				glog.V(3).Infoln("Received KeepAlive Pingback")
+				atomic.AddInt64(&c.pingbackCount, 1)
+			}
+		} else {
+			glog.Warningf("No Entry in cmdMap for: %v - (%v)", string(response), response)
 		}
-		if len(c.cmdQueue.queue) < (int(seq) + 1) {
-			glog.Warningln("No Entry for Sequence: %v in cmdQueue", seq)
-			glog.Warningf("Skipping Response: %v", response)
-			return
+	} else {
+		trail := []byte("\n")
+		if !last {
+			trail = []byte{}
 		}
-		trm := c.cmdQueue.queue[seq]
-		trm.response = response
-		if trm.writeCloser != nil {
-			trm.writeCloser.Write(response)
+		trm.response = append(trm.response, response...)
+		trm.response = append(trm.response, trail...)
+		if last {
+			if trm.writeCloser != nil {
+				trm.writeCloser.Write(trm.response)
+				trm.writeCloser.Close()
+			}
+
+			//TODO: Evaluate if this is required
+			c.cmdLock.Lock()
+			delete(c.cmdMap, seq)
+			c.cmdLock.Unlock()
 		}
-		c.cmdQueue.Unlock()
-		*/
 	}
 }
