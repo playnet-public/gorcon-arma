@@ -1,7 +1,7 @@
 {
     "arma": {
         "ip": "127.0.0.1",
-        "port": "2309",
+        "port": "2301",
         "password": "qwerty",
         "path": "D:/Program Files (x86)/Steam/SteamApps/common/Arma 3/arma3server.exe",
         "param": "-name=goTest"
