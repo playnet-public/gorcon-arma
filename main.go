@@ -7,6 +7,7 @@ import (
 	"io"
 	"net"
 	"runtime"
+	"time"
 
 	"play-net.org/gorcon-arma/procwatch"
 	"play-net.org/gorcon-arma/rcon"
@@ -84,12 +85,12 @@ func do() error {
 	if err != nil {
 		return err
 	}
-	//var wcl io.WriteCloser
+	var wcl io.WriteCloser
 	scanner := bufio.NewScanner(r)
-	//go func(w io.WriteCloser) {
-	//	time.Sleep(time.Second * 30)
-	//	client.RunCommand([]byte("#restartserver"), w)
-	//}(wcl)
+	go func(w io.WriteCloser) {
+		time.Sleep(time.Second * 30)
+		client.RunCommand([]byte("#restartserver"), w)
+	}(wcl)
 	for scanner.Scan() {
 		glog.Errorf("RCON: %s", scanner.Text())
 	}

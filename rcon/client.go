@@ -23,6 +23,7 @@ func New(bec BeCfg) *Client {
 		reconnectTimeout: 25,
 		looping:          false,
 		cmdChan:          make(chan transmission),
+		cmdMap:           make(map[byte]transmission),
 	}
 }
 
@@ -30,7 +31,7 @@ func New(bec BeCfg) *Client {
 func (c *Client) Connect() (err error) {
 	c.con, err = net.DialUDP("udp", nil, c.addr)
 	if err != nil {
-		glog.Errorln("Connection failed")
+		//glog.Errorln("Connection failed")
 		c.con = nil
 		return err
 	}
@@ -44,19 +45,20 @@ func (c *Client) Connect() (err error) {
 	n, err := c.con.Read(buffer)
 	if err, ok := err.(net.Error); ok && err.Timeout() {
 		c.con.Close()
-		glog.Error(ErrLoginFailed)
+		//glog.Error(ErrLoginFailed)
 		return ErrTimeout
 	}
 	if err != nil {
 		c.con.Close()
-		glog.Error(err)
-		return ErrLoginFailed
+		//glog.Error(err)
+		//return ErrLoginFailed
+		return err
 	}
 
 	response, err := verifyLogin(buffer[:n])
 	if err != nil {
 		c.con.Close()
-		glog.Error(ErrLoginFailed)
+		//glog.Error(ErrLoginFailed)
 		return err
 	}
 	if response == packetResponse.LoginFail {
@@ -69,6 +71,9 @@ func (c *Client) Connect() (err error) {
 		c.looping = true
 		c.lastPacket.Time = time.Now()
 		c.sequence.s = 0
+		c.cmdLock.Lock()
+		c.cmdMap = make(map[byte]transmission)
+		c.cmdLock.Unlock()
 
 		go c.watcherLoop()
 	}
@@ -81,10 +86,12 @@ func (c *Client) watcherLoop() {
 	go c.readerLoop(disc)
 	for {
 		if !c.looping {
-			if err := c.Reconnect(); err == nil {
-				return
+			if err := c.Reconnect(); err != nil {
+				glog.V(2).Info(err)
+				time.Sleep(time.Second * 3)
+				continue
 			}
-			continue
+			return
 		}
 		select {
 		case d := <-disc:
@@ -108,7 +115,7 @@ func (c *Client) Reconnect() error {
 		return nil
 	}
 	if err != nil {
-		glog.Warningln(err)
+		//glog.Warningln(err)
 		return err
 	}
 	return nil

@@ -57,6 +57,9 @@ type Client struct {
 		time.Time
 	}
 
+	cmdMap  map[byte]transmission
+	cmdLock sync.Mutex
+
 	chatWriter struct {
 		sync.Mutex
 		io.Writer
