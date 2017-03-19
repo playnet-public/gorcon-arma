@@ -1,113 +1,12 @@
 package rcon
 
 import (
-	"errors"
 	"io"
 	"net"
-	"sync"
 	"time"
-
-	"strings"
 
 	"github.com/golang/glog"
 )
-
-var (
-	//ErrDisconnect .
-	ErrDisconnect = errors.New("Connection lost")
-	//ErrConnectionNil .
-	ErrConnectionNil = errors.New("Connection is nil")
-	//ErrTimeout .
-	ErrTimeout = errors.New("Connection timeout")
-	//ErrInvalidLoginPacket .
-	ErrInvalidLoginPacket = errors.New("Received invalid Login Packet")
-	//ErrInvalidLogin .
-	ErrInvalidLogin = errors.New("Login Invalid")
-	//ErrInvalidChecksum .
-	ErrInvalidChecksum = errors.New("Received invalid Packet Checksum")
-	//ErrUnknownPacketType .
-	ErrUnknownPacketType = errors.New("Received Unknown Packet Type")
-)
-
-//Config contains all data required by BE Connections
-type Config struct {
-	Addr           *net.UDPAddr
-	Password       string
-	KeepAliveTimer uint32
-}
-
-//GetConfig returns BeConfig
-func (bec Config) GetConfig() Config {
-	return bec
-}
-
-//BeCfg is the Interface providing Configs for the Client
-type BeCfg interface {
-	GetConfig() Config
-}
-
-type transmission struct {
-	packet      []byte
-	command     []byte
-	sequence    byte
-	response    []byte
-	timestamp   time.Time
-	writeCloser io.WriteCloser
-}
-
-//Client is the the Object Handling the Connection
-type Client struct {
-
-	//Config
-	addr             *net.UDPAddr
-	password         string
-	keepAliveTimer   uint32
-	reconnectTimeout float64
-
-	lastPacketTime time.Time
-	sent           time.Time
-	ready          bool
-	con            *net.UDPConn
-	readBuffer     []byte
-	looping        bool
-
-	waitGroup sync.WaitGroup
-
-	sequence struct {
-		sync.Mutex
-		s byte
-	}
-
-	conStatus struct {
-		sync.Mutex
-		bool
-	}
-
-	lastPacket struct {
-		sync.Mutex
-		time.Time
-	}
-
-	writerQueue struct {
-		sync.Mutex
-		queue []transmission
-	}
-
-	cmdQueue struct {
-		sync.Mutex
-		queue []transmission
-	}
-
-	chatWriter struct {
-		sync.Mutex
-		io.Writer
-	}
-
-	eventWriter struct {
-		sync.Mutex
-		io.Writer
-	}
-}
 
 //New creates a Client with given Config
 func New(bec BeCfg) *Client {
@@ -123,38 +22,41 @@ func New(bec BeCfg) *Client {
 		readBuffer:       make([]byte, 4096),
 		reconnectTimeout: 25,
 		looping:          false,
+		cmdChan:          make(chan transmission),
 	}
 }
 
 //Connect opens a new Connection to the Server
 func (c *Client) Connect() (err error) {
-	if c.con != nil {
-		c.con.Close()
-	}
 	c.con, err = net.DialUDP("udp", nil, c.addr)
 	if err != nil {
 		glog.Errorln("Connection failed")
+		c.con = nil
 		return err
 	}
 
 	//Read Buffer
 	buffer := make([]byte, 9)
 
+	glog.V(3).Infoln("Sending Login Information")
 	c.con.SetReadDeadline(time.Now().Add(time.Second * 2))
 	c.con.Write(buildLoginPacket(c.password))
 	n, err := c.con.Read(buffer)
 	if err, ok := err.(net.Error); ok && err.Timeout() {
 		c.con.Close()
+		glog.Error(ErrLoginFailed)
 		return ErrTimeout
 	}
 	if err != nil {
 		c.con.Close()
-		return err
+		glog.Error(err)
+		return ErrLoginFailed
 	}
 
 	response, err := verifyLogin(buffer[:n])
 	if err != nil {
 		c.con.Close()
+		glog.Error(ErrLoginFailed)
 		return err
 	}
 	if response == packetResponse.LoginFail {
@@ -162,22 +64,54 @@ func (c *Client) Connect() (err error) {
 		c.con.Close()
 		return ErrInvalidLogin
 	}
+	glog.V(2).Infoln("Login successful")
 	if !c.looping {
-		c.startLoops()
+		c.looping = true
+		c.lastPacket.Time = time.Now()
+		c.sequence.s = 0
+
+		go c.watcherLoop()
 	}
 	return nil
 }
 
-func (c *Client) startLoops() {
-	c.looping = true
-	c.waitGroup = sync.WaitGroup{}
-	c.waitGroup.Add(2)
-	c.lastPacketTime = time.Now()
-	c.ready = true
-	c.sequence.s = 0
+func (c *Client) watcherLoop() {
+	disc := make(chan int)
+	go c.writerLoop(disc, c.cmdChan)
+	go c.readerLoop(disc)
+	for {
+		if !c.looping {
+			if err := c.Reconnect(); err == nil {
+				return
+			}
+			continue
+		}
+		select {
+		case d := <-disc:
+			glog.Warningf("Trying to recover from broken Connection (close msg: %v)", d)
+			if err := c.Reconnect(); err == nil {
+				return
+			}
+		default:
+			continue
+		}
+	}
+}
 
-	go c.writerLoop()
-	go c.readerLoop()
+//Reconnect after loops exited
+func (c *Client) Reconnect() error {
+	c.looping = false
+	//c.con.Close()
+	var err error
+	if err = c.Connect(); err == nil {
+		glog.Infoln("Reconnect successful")
+		return nil
+	}
+	if err != nil {
+		glog.Warningln(err)
+		return err
+	}
+	return nil
 }
 
 //Disconnect the Client
@@ -199,174 +133,30 @@ func (c *Client) SetEventWriter(w io.Writer) {
 	c.eventWriter.Unlock()
 }
 
-//QueueCommand adds given cmd to command queue
-func (c *Client) QueueCommand(cmd []byte, w io.WriteCloser) {
-	c.writerQueue.Lock()
-	c.writerQueue.queue = append(c.writerQueue.queue, transmission{command: cmd, writeCloser: w})
-	c.writerQueue.Unlock()
-}
-
-func (c *Client) writerLoop() {
-	defer c.waitGroup.Done()
-	for {
-		if c.con == nil {
-			glog.Errorln(ErrConnectionNil)
-			return
-		}
-		t := time.Now()
-
-		//Connection KeepAlive
-		c.lastPacket.Lock()
-		if t.After(c.lastPacket.Add(time.Second * time.Duration(c.keepAliveTimer))) {
-			if c.con != nil {
-				c.con.SetWriteDeadline(time.Now().Add(time.Millisecond * 100))
-				_, err := c.con.Write(buildKeepAlivePacket(c.sequence.s))
-				if err != nil {
-					glog.Errorln(err)
-				}
-				c.lastPacket.Time = t
-			}
-		}
-		c.lastPacket.Unlock()
-
-		c.writerQueue.Lock()
-		c.sequence.Lock()
-		if len(c.writerQueue.queue) > 0 {
-			trm := c.writerQueue.queue[0]
-			if c.con != nil {
-				c.con.SetWriteDeadline(time.Now().Add(time.Second * 2)) //TODO: Evaluate Deadlines
-				trm.packet = buildCmdPacket(trm.command, c.sequence.s)
-				glog.V(4).Infof("Sending Packet: %v - Command: %v - Sequence: %v", string(trm.packet), string(trm.command), c.sequence.s)
-				_, err := c.con.Write(trm.packet)
-				if err != nil {
-					glog.Errorln(err)
-				}
-				c.lastPacket.Lock()
-				c.lastPacket.Time = time.Now()
-				c.lastPacket.Unlock()
-				c.writerQueue.queue = c.writerQueue.queue[1:]
-				trm.sequence = c.sequence.s
-				c.cmdQueue.Lock()
-				c.cmdQueue.queue = append(c.cmdQueue.queue, trm)
-				c.cmdQueue.Unlock()
-				c.sequence.s = c.sequence.s + 1
-			} else {
-				glog.Errorln(ErrConnectionNil)
-				return
-			}
-		}
-		c.sequence.Unlock()
-		c.writerQueue.Unlock()
-	}
-}
-
-func (c *Client) readerLoop() {
-	defer c.waitGroup.Done()
-	for {
-		if c.con == nil {
-			glog.Errorln(ErrConnectionNil)
-			return
-		}
-
-		//c.con.SetReadDeadline(time.Now().Add(time.Millisecond)) Evaluate if Deadline is required
-		n, err := c.con.Read(c.readBuffer)
-		if err == nil {
-			data := c.readBuffer[:n]
-			if err := c.handlePacket(data); err != nil {
-				glog.Errorln(err)
-			}
-		}
-	}
-}
-
-func verifyLogin(packet []byte) (byte, error) {
-	if len(packet) != 9 {
-		return 0, ErrInvalidLoginPacket
-	}
-	if match, err := verifyChecksumMatch(packet); match == false || err != nil {
-		return 0, ErrInvalidChecksum
-	}
-
-	return packet[8], nil
-}
-
-func (c *Client) handlePacket(packet []byte) error {
-	seq, data, pType, err := verifyPacket(packet)
-	if err != nil {
-		glog.Errorln(err)
-		return err
-	}
-
-	// Handle Packet Types
-	if pType == packetType.ServerMessage {
-		glog.V(4).Infof("ServerMessage Packet: %v - Sequence: %v", string(data), seq)
-		c.handleServerMessage(append(data[3:], []byte("/n")...))
-		if c.con != nil {
-			c.con.SetWriteDeadline(time.Now().Add(time.Millisecond * 100))
-			_, err := c.con.Write(buildMsgAckPacket(seq))
-			if err != nil {
-				glog.Error(err)
-				return err
-			}
-		}
-		return nil
-	}
-
-	if pType != packetType.Command && pType != packetType.MultiCommand {
-		glog.V(3).Infof("Packet: %v - PacketType: %v", string(packet), pType)
-		return ErrUnknownPacketType
-	}
-
-	packetCount, currentPacket, isMultiPacket := checkMultiPacketResponse(data)
-	if !isMultiPacket {
-		c.handleResponse(seq, data[3:], true)
-		return nil
-	}
-
-	if currentPacket+1 < packetCount {
-		c.handleResponse(seq, data[6:], false)
-	} else {
-		c.handleResponse(seq, data[6:], true)
-	}
-
-	return nil
+//RunCommand adds given cmd to command queue
+func (c *Client) RunCommand(cmd []byte, w io.WriteCloser) {
+	c.cmdChan <- transmission{command: cmd, writeCloser: w}
 }
 
 func (c *Client) handleResponse(seq byte, response []byte, last bool) {
-
-}
-
-func (c *Client) handleServerMessage(data []byte) {
-	var ChatPatterns = []string{
-		/*"RCon admin", <- Kicked out to handle as event? */
-		"(Group)",
-		"(Vehicle)",
-		"(Unknown)",
-	}
-	for _, v := range ChatPatterns {
-		if strings.HasPrefix(string(data), v) {
-			/*if v == "RCon admin" {
-				if strings.HasSuffix(string(data), "logged in\n") {
-					//TODO: Handle Login?
-					break
-				}
-			}*/
-			c.chatWriter.Lock()
-			if c.chatWriter.Writer != nil {
-				c.chatWriter.Write(data)
-			}
-			c.chatWriter.Unlock()
+	if last {
+		/*c.cmdQueue.Lock()
+		if len(c.cmdQueue.queue) == 0 {
+			glog.Warningln("cmdQueue is empty which is unexpected")
+			glog.Warningf("Skipping Response: %v", response)
 			return
 		}
-	}
-	c.eventWriter.Lock()
-	if c.eventWriter.Writer != nil {
-		if strings.Contains(string(data), "logged in") {
-			glog.V(5).Infoln("Login Event: ", string(data))
-			c.eventWriter.Writer.Write(data)
-		} else {
-			c.eventWriter.Writer.Write(data)
+		if len(c.cmdQueue.queue) < (int(seq) + 1) {
+			glog.Warningln("No Entry for Sequence: %v in cmdQueue", seq)
+			glog.Warningf("Skipping Response: %v", response)
+			return
 		}
+		trm := c.cmdQueue.queue[seq]
+		trm.response = response
+		if trm.writeCloser != nil {
+			trm.writeCloser.Write(response)
+		}
+		c.cmdQueue.Unlock()
+		*/
 	}
-	c.eventWriter.Unlock()
 }

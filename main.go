@@ -1,11 +1,15 @@
 package main
 
 import (
+	"bufio"
 	"flag"
 	"fmt"
+	"io"
+	"net"
 	"runtime"
 
 	"play-net.org/gorcon-arma/procwatch"
+	"play-net.org/gorcon-arma/rcon"
 
 	"github.com/golang/glog"
 	"github.com/spf13/viper"
@@ -58,7 +62,36 @@ func do() error {
 		glog.Info("Scheduler is disabled")
 	}
 
-	for {
+	udpadr, err := net.ResolveUDPAddr("udp", cfg.GetString("arma.ip")+":"+cfg.GetString("arma.port"))
+
+	if err != nil {
+		glog.Errorln("Could not convert ArmA IP and Port")
+		return err
+	}
+	becfg := rcon.Config{
+		Addr:           udpadr,
+		Password:       cfg.GetString("arma.password"),
+		KeepAliveTimer: 10,
+	}
+
+	client := rcon.New(becfg)
+
+	r, w := io.Pipe()
+	client.SetEventWriter(w)
+	client.SetChatWriter(w)
+
+	err = client.Connect()
+	if err != nil {
+		return err
+	}
+	//var wcl io.WriteCloser
+	scanner := bufio.NewScanner(r)
+	//go func(w io.WriteCloser) {
+	//	time.Sleep(time.Second * 30)
+	//	client.RunCommand([]byte("#restartserver"), w)
+	//}(wcl)
+	for scanner.Scan() {
+		glog.Errorf("RCON: %s", scanner.Text())
 	}
 	return nil
 }
