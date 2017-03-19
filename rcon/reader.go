@@ -31,7 +31,10 @@ func (c *Client) readerLoop(disc chan int) {
 			go c.handlePacket(data)
 		}
 		if err != nil {
-			if err, _ := err.(net.Error); !err.Timeout() {
+			if err, _ := err.(net.Error); err.Timeout() {
+				glog.V(5).Infoln(err)
+				continue
+			} else {
 				glog.Error(err)
 				return
 			}
