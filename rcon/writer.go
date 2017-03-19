@@ -24,7 +24,11 @@ func (c *Client) writerLoop(disc chan int, cmd chan transmission) {
 		select {
 		case trm := <-cmd:
 			glog.V(4).Infoln("Preparing Command: ", trm)
-			c.writeCommand(trm)
+			err := c.writeCommand(trm)
+			if err != nil {
+				glog.Error(err)
+				return
+			}
 		case <-timeout:
 			if c.con != nil {
 				glog.V(3).Infof("Sending Keepalive")

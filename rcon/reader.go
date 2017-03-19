@@ -25,10 +25,10 @@ func (c *Client) readerLoop(disc chan int) {
 		if err == nil {
 			data := c.readBuffer[:n]
 			glog.V(5).Infof("Received Data: %v", data)
-			if err := c.handlePacket(data); err != nil {
+			if herr := c.handlePacket(data); herr != nil {
 				glog.Errorln(err)
 			}
-			go c.handlePacket(data)
+			//go c.handlePacket(data) //TODO: Evaluate if parallel aproach is better
 		}
 		if err != nil {
 			if err, _ := err.(net.Error); err.Timeout() {
