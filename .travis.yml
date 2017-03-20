@@ -27,7 +27,7 @@ after_success:
   - VERSION=${VERSION} make package
 
 before_deploy:
-  - cp gorcon-arma_${VERSION}.deb dist/
+  - cp /home/travis/gopath/gorcon-arma_${VERSION}.deb dist/
   - mkdocs build --clean
   - tar cfz dist/gorcon-arma-${VERSION}.src.tar.gz --exclude-vcs --exclude dist .
 
