@@ -23,6 +23,7 @@ script:
 
 after_success:
   - make crossbinary
+  - make install
   - VERSION=${VERSION} make package
   
 
