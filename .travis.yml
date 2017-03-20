@@ -25,7 +25,6 @@ after_success:
   - make crossbinary
   - make install
   - VERSION=${VERSION} make package
-  
 
 before_deploy:
   - cp gorcon-arma_${VERSION}.deb dist/
