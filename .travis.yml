@@ -27,6 +27,7 @@ deploy:
     secure: "qxA8Sp20CKqYWyZXZdyJJqviIJ+0UUIoLKzwD4SK2dRVsTardZPfY3mM1Oqryb+4qyzuseoEuKfgwSZFFB0gaIMcCtH11fb0IR4Cu0/bZqXYSci9SwMH9sNvwf9Pat3FAeSM0Ty2tTkBmTYU0KZaSPzCAJnIJmYq0qdQc6aGN+xx+CHLYgfWvXsqnWHgt0L6cKcqZdWDABEFoHl8LqAz/NM93fNUArteWpYubvPq9LOj8lgTPSvBcQb7Uiz1KySObtk/oVHYTL3HYqhq2s+fRgFtp1Jf6TWmVhJ12qcpMge4NwNCOy5FOoo/9ZHJEvoKVWusoyxOPCp7mbz76/Mfdp5BjrtwI3kmffhpt9gZy30uYG0/azZXFYpABqbnY0E6X0StYj9ZyDcuOn7nPrbinV8SxAkQmL2Pq1zgJKt99cBlSEb1PgLPRJ6Jm7RIV1vnzy06mnzhMlEBrA4jVgH4EWq4HSZszP8JTOXyN+/adyfDmUybluBSINYX45SYKmJuqm4jEkATPjZO9BTBh1kgLkBceKYfe41F9/JzPeC+pp3tl2yOXA7y3FJakcUvnXFPk8kIe4HoMg7OOAuajtVjCsNwKIIGAH9Y50Yfpv1GyeCmZA++5/ujbqS31ZW72jbM/dfL1BnuYVxyrYkA45ZK24vSzdtLbnX3e32ETA/JUCA="
   file: dist/gorcon-arma*
   skip_cleanup: true
+  file_glob: true
   overwrite: true
   on:
     repo: PlayNet-Public/GoRcon-ArmA
