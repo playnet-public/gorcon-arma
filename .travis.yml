@@ -38,6 +38,6 @@ deploy:
     skip_cleanup: true
     file_glob: true
     on:
-      repo: playnet-public/gorcon-arma
+      repo: PlayNet-Public/GoRcon-ArmA
       tags: true
 
