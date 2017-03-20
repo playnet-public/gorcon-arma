@@ -55,5 +55,5 @@ For now both happens over rcon and therefor a working connection is required, bu
 ```
 
 ## License
-This project is licensed under the included License.
+This project is licensed under the included License (GNU GPLv3).
 Powered by https://play-net.org
