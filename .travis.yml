@@ -28,7 +28,6 @@ after_success:
 
 before_deploy:
   - cp /home/travis/gopath/gorcon-arma_${VERSION}.deb dist/
-  - mkdocs build --clean
   - tar cfz dist/gorcon-arma-${VERSION}.src.tar.gz --exclude-vcs --exclude dist .
 
 deploy:
