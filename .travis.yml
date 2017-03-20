@@ -1,7 +1,6 @@
 language: go
 go:
 - 1.8
-- master
 go_import_path: play-net.org/gorcon-arma
 env:
   global:
