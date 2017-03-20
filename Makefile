@@ -35,11 +35,11 @@ test-integration: ## run the integration tests
 	./script/make.sh generate binary test-integration
 
 validate: ## validate gofmt, golint and go vet
-	./script/make.sh  validate-glide validate-gofmt validate-govet validate-golint validate-misspell validate-vendor
+	./script/make.sh  validate-glide validate-gofmt validate-govet validate-golint validate-misspell
 
 dist:
 	mkdir dist
-	
+
 all: test install
 install:
 	GOBIN=$(GOPATH)/bin GO15VENDOREXPERIMENT=1 go install gorcon-arma/*.go
