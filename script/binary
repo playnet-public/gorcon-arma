@@ -1,0 +1,20 @@
+#!/bin/bash
+set -e
+
+rm -f dist/traefik
+
+FLAGS=""
+if [ -n "$VERBOSE" ]; then
+    FLAGS="${FLAGS} -v"
+fi
+
+if [ -z "$VERSION" ]; then
+    VERSION=$(git rev-parse HEAD)
+fi
+
+if [ -z "$DATE" ]; then
+    DATE=$(date -u '+%Y-%m-%d_%I:%M:%S%p')
+fi
+
+# Build binaries
+CGO_ENABLED=0 GOGC=off go build $FLAGS  -a -installsuffix nocgo -o dist/gorcon-arma gorcon-arma/*.go

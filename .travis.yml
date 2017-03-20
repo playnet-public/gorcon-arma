@@ -6,13 +6,38 @@ go:
 
 go_import_path: play-net.org/gorcon-arma
 
-before_install:
+env:
+  global:
+    - REPO: $TRAVIS_REPO_SLUG
+    - VERSION: $TRAVIS_TAG
+
+install:
   - make prepare
 
-script:
+before_script:
+  - make validate
   - make test || true
 
-install: make install
+script:
+  - make binary
 
-after_success: make package
+after_success:
+  - make crossbinary
+  
+
+before_deploy:
+  - VERSION=${VERSION} make package
+  - cp gorcon-arma_${VERSION}.deb dist/
+  - mkdocs build --clean
+  - tar cfz dist/gorcon-arma-${VERSION}.src.tar.gz --exclude-vcs --exclude dist .
+
+deploy:
+  - provider: releases
+    api_key: ${GITHUB_TOKEN}
+    file: dist/gorcon-arma*
+    skip_cleanup: true
+    file_glob: true
+    on:
+      repo: playnet-public/gorcon-arma
+      tags: true
 
