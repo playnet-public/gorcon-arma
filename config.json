@@ -6,7 +6,7 @@
         "path": "D:/Program Files (x86)/Steam/SteamApps/common/Arma 3/arma3server.exe",
         "param": "-name=goTest",
         "keepAliveTimer": 10,
-        "keepAliveTolerance": 2
+        "keepAliveTolerance": 4
     },
     "scheduler": {
         "enabled": true,
