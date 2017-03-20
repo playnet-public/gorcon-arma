@@ -6,7 +6,7 @@ go:
 
 go_import_path: play-net.org/gorcon-arma
 
-before_script:
+before_install:
   - make prepare
 
 script:
