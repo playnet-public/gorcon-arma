@@ -1,0 +1,18 @@
+language: go
+
+go:
+  - 1.8
+  - master
+
+go_import_path: play-net.org/gorcon-arma
+
+before_script:
+  - make prepare
+
+script:
+  - make test || true
+
+install: make install
+
+after_success: make package
+
