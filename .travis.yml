@@ -1,42 +1,30 @@
 language: go
-
 go:
-  - 1.8
-  - master
-
+- 1.8
+- master
 go_import_path: play-net.org/gorcon-arma
-
 env:
   global:
-    - REPO: $TRAVIS_REPO_SLUG
-    - VERSION: $TRAVIS_TAG
-
+  - REPO: $TRAVIS_REPO_SLUG
+  - VERSION: $TRAVIS_TAG
 install:
-  - make prepare
-
+- make prepare
 before_script:
-  - make validate
-  - make test || true
-
+- make validate
+- make test || true
 script:
-  - make binary
-
+- make binary
 after_success:
-  - make crossbinary
-  - make install
-  - VERSION=${VERSION} make package
-
+- make crossbinary
+- make install
+- VERSION=${VERSION} make package
 before_deploy:
-  - cp /home/travis/gopath/gorcon-arma_${VERSION}.deb dist/
-  - tar cfz dist/gorcon-arma-${VERSION}.src.tar.gz --exclude-vcs --exclude dist .
-
+- cp /home/travis/gopath/gorcon-arma_${VERSION}.deb dist/
+- tar cfz dist/gorcon-arma-${VERSION}.src.tar.gz --exclude-vcs --exclude dist .
 deploy:
-  - provider: releases
-    api_key: ${GITHUB_TOKEN}
-    file: dist/gorcon-arma*
-    skip_cleanup: true
-    file_glob: true
-    on:
-      repo: PlayNet-Public/GoRcon-ArmA
-      tags: true
-
+  provider: releases
+  api_key:
+    secure: ${GITHUB_TOKEN}
+  file: dist/gorcon-arma*
+  on:
+    repo: PlayNet-Public/GoRcon-ArmA
