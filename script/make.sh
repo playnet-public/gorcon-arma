@@ -26,7 +26,6 @@ fi
 for bundle in ${bundles[@]}; do
     export DEST=gorcon-arma
     ABS_DEST="$(cd "$DEST" && pwd -P)"
-    echo $ABS_DEST
     bundle "$bundle"
     echo
 done
