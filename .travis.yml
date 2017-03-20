@@ -28,3 +28,4 @@ deploy:
   file: dist/gorcon-arma*
   on:
     repo: PlayNet-Public/GoRcon-ArmA
+    tags: true
