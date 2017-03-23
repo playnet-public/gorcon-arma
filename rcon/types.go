@@ -101,7 +101,9 @@ func responseType(data []byte) (byte, error) {
 	return data[7], nil
 }
 
-func getSequence(data []byte) byte {
-	//TODO: Evaluate len check
-	return data[8]
+func getSequence(data []byte) (byte, error) {
+	if len(data) < 9 {
+		return 0, ErrInvalidSizeNoSequence
+	}
+	return data[8], nil
 }

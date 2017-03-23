@@ -1,7 +1,5 @@
 package rcon
 
-import "github.com/golang/glog"
-
 func buildPacket(data []byte, PacketType byte) []byte {
 	data = append([]byte{0xFF, PacketType}, data...)
 	checksum := makeChecksum(data)
@@ -29,16 +27,17 @@ func buildMsgAckPacket(seq uint8) []byte {
 func verifyPacket(packet []byte) (seq byte, data []byte, pckType byte, err error) {
 	checksum, err := getChecksum(packet)
 	if err != nil {
-		glog.V(3).Infoln("verifyPacket: failed to get checksum") // TODO: Verify if required
 		return
 	}
 	match := verifyChecksum(packet[6:], checksum)
 	if !match {
-		glog.V(3).Infoln("verfiyPacket: failed at checksum match")
 		err = ErrInvalidChecksum
 		return
 	}
-	seq = getSequence(packet)
+	seq, err = getSequence(packet)
+	if err != nil {
+		return
+	}
 	data, err = stripHeader(packet)
 	if err != nil {
 		return

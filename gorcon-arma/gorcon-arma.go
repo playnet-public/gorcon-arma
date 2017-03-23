@@ -1,13 +1,11 @@
 package main
 
 import (
-	"bufio"
 	"flag"
 	"fmt"
 	"io"
 	"net"
 	"runtime"
-	"time"
 
 	"play-net.org/gorcon-arma/procwatch"
 	"play-net.org/gorcon-arma/rcon"
@@ -24,11 +22,19 @@ var (
 	maxprocsPtr = flag.Int(parameterMaxprocs, runtime.NumCPU(), "max go procs")
 )
 
+var cfg *viper.Viper
+
 func main() {
 	defer glog.Flush()
 	glog.CopyStandardLogTo("info")
 	flag.Parse()
-
+	glog.Infoln("-- PlayNet GoRcon-ArmA - OpenSource Server Manager --")
+	glog.Infoln("Version: 0.1.4")
+	glog.Infoln("SourceCode: http://bit.ly/gorcon-code")
+	glog.Infoln("Tasks: http://bit.ly/gorcon-tasks")
+	glog.Infoln("")
+	glog.Infoln("This project is work in progress - Use at your own risk")
+	glog.Infoln("--")
 	glog.Infof("Using %d go procs", *maxprocsPtr)
 	runtime.GOMAXPROCS(*maxprocsPtr)
 
@@ -38,66 +44,107 @@ func main() {
 }
 
 func do() error {
-	cfg := getConfig()
+	cfg = getConfig()
+	useSched := cfg.GetBool("scheduler.enabled")
+	useRcon := true
 
-	// Placeholder for Log Test and Init Information
+	var err error
+	var watcher *procwatch.Watcher
+	var client *rcon.Client
+	var cmdChan chan string
 
 	// TODO: Refactor so scheduler and watcher are enabled seperately
-	if cfg.GetBool("scheduler.enabled") {
+	if useSched {
 		glog.Infof("Scheduler is enabled")
-		schedulerPath := procwatch.SchedulePath(cfg.GetString("scheduler.path"))
-		schedulerEntity, err := schedulerPath.Parse()
+		watcher, err = runWatcher()
 		if err != nil {
 			return err
 		}
-		pwcfg := procwatch.Cfg{
-			A3exe:    cfg.GetString("arma.path"),
-			A3par:    cfg.GetString("arma.param"),
-			Schedule: *schedulerEntity,
-			//Timezone: cfg.GetInt("scheduler.timezone"),
-		}
-
-		watcher := procwatch.New(pwcfg)
-		watcher.Start()
+		cmdChan = watcher.GetCmdChannel()
 	} else {
 		glog.Info("Scheduler is disabled")
 	}
 
-	udpadr, err := net.ResolveUDPAddr("udp", cfg.GetString("arma.ip")+":"+cfg.GetString("arma.port"))
+	if useRcon {
+		glog.Infof("RCon is enabled")
+		client, err = runRcon()
+		if err != nil {
+			return err
+		}
+		client.RunCommand("say -1 PlayNet GoRcon-ArmA Connected", nil)
+		if useSched {
+			go pipeCommands(cmdChan, client, nil)
+		}
+	} else {
+		glog.Infof("RCon is disabled")
+	}
 
+	for {
+	}
+}
+
+func runWatcher() (*procwatch.Watcher, error) {
+	schedulerPath := procwatch.SchedulePath(cfg.GetString("scheduler.path"))
+	schedulerEntity, err := schedulerPath.Parse()
+	if err != nil {
+		return nil, err
+	}
+	armaPath := cfg.GetString("arma.path")
+	armaParam := cfg.GetString("arma.param")
+	glog.Infof("\nScheduler Config: \n"+
+		"Path to scheduler.json: %v \n"+
+		"Path to ArmA Executable: %v \n"+
+		"ArmA Parameters: %v \n",
+		schedulerPath, armaPath, armaParam)
+	pwcfg := procwatch.Cfg{
+		A3exe:    armaPath,
+		A3par:    armaParam,
+		Schedule: *schedulerEntity,
+	}
+
+	watcher := procwatch.New(pwcfg)
+	watcher.Start()
+	return watcher, nil
+}
+
+func runRcon() (*rcon.Client, error) {
+	armaIP := cfg.GetString("arma.ip")
+	armaPort := cfg.GetString("arma.port")
+	armaPassword := cfg.GetString("arma.password")
+	armaKeepAliveTimer := cfg.GetInt("arma.keepAliveTimer")
+	armaKeepAliveTolerance := cfg.GetInt64("arma.keepAliveTolerance")
+	udpadr, err := net.ResolveUDPAddr("udp", armaIP+":"+armaPort)
 	if err != nil {
 		glog.Errorln("Could not convert ArmA IP and Port")
-		return err
+		return nil, err
 	}
+	glog.Infof("\nRCon Config: \n"+
+		"ArmA Server Address: %v \n"+
+		"ArmA Server Port: %v \n"+
+		"KeepAliveTimer: %v \n"+
+		"KeepAliveTolerance: %v",
+		armaIP, armaPort, armaKeepAliveTimer, armaKeepAliveTolerance)
 	becfg := rcon.Config{
 		Addr:               udpadr,
-		Password:           cfg.GetString("arma.password"),
-		KeepAliveTimer:     cfg.GetInt("arma.keepAliveTimer"),
-		KeepAliveTolerance: cfg.GetInt64("arma.keepAliveTolerance"),
+		Password:           armaPassword,
+		KeepAliveTimer:     armaKeepAliveTimer,
+		KeepAliveTolerance: armaKeepAliveTolerance,
 	}
 
 	client := rcon.New(becfg)
+	client.WatcherLoop()
+	return client, nil
+}
 
-	r, w := io.Pipe()
-	client.SetEventWriter(w)
-	client.SetChatWriter(w)
-
-	err = client.Connect()
-	if err != nil {
-		return err
+func pipeCommands(cmdChan chan string, c *rcon.Client, w io.WriteCloser) {
+	for {
+		cmd := <-cmdChan
+		if len(cmd) != 0 {
+			//TODO: Evaluate if this is good
+			w.Write([]byte("Running Command: " + cmd))
+			c.RunCommand(cmd, w)
+		}
 	}
-	var wcl io.WriteCloser
-	scanner := bufio.NewScanner(r)
-	go func(w io.WriteCloser) {
-		time.Sleep(time.Second * 10)
-		client.RunCommand([]byte("say -1 hello"), w)
-		time.Sleep(time.Second * 2)
-		client.RunCommand([]byte("say -1 hello"), w)
-	}(wcl)
-	for scanner.Scan() {
-		glog.Errorf("RCON: %s", scanner.Text())
-	}
-	return nil
 }
 
 func getConfig() *viper.Viper {
@@ -105,7 +152,7 @@ func getConfig() *viper.Viper {
 	cfg.SetConfigName("config")
 	cfg.AddConfigPath(".")
 
-	glog.V(2).Infof("Reading Config")
+	glog.V(1).Infof("Reading Config")
 
 	err := cfg.ReadInConfig()
 	if err != nil {
