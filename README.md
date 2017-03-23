@@ -94,4 +94,7 @@ The Scheduler implements a system like cronjobs. To learn more about it check ou
 
 ## License
 This project is licensed under the included License (GNU GPLv3).
+We also ask you to keep the projects name and links as they are, to direct possible contributors and users to the original sources.
+Do not host releases yourself and redirect users back to the official releases for downloads.
+
 Powered by https://play-net.org.
