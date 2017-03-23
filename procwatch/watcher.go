@@ -37,6 +37,7 @@ type Watcher struct {
 	cmd       *exec.Cmd
 	schedule  Schedule
 	cron      cron.Cron
+	cmdChan   chan string
 }
 
 //New creates a Procwatch with given Config
@@ -48,6 +49,7 @@ func New(w Config) *Watcher {
 		a3par:    cfg.A3par,
 		schedule: cfg.Schedule,
 		cron:     *cron.New(),
+		cmdChan:  make(chan string),
 	}
 }
 
@@ -68,6 +70,14 @@ func (w *Watcher) Start() {
 	} else {
 		return
 	}
+}
+
+//GetCmdChannel returns the channel to which scheduler and watcher write their commands
+func (w *Watcher) GetCmdChannel() chan string {
+	if w.cmdChan != nil {
+		return w.cmdChan
+	}
+	return nil
 }
 
 //Wait for Server to exit
