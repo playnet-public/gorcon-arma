@@ -10,7 +10,6 @@
     },
     "scheduler": {
         "enabled": true,
-        "path": "schedule.json",
-        "timezone": 1
+        "path": "schedule.json"
     }
 }

@@ -1,18 +1,18 @@
- {
- "schedule": [
-        {
+{
+    "schedule": [{
             "command": "say -1 Restart in 30 minutes",
             "restart": true,
             "day": "*",
-            "hour": "*", 
-            "minute": "11" 
+            "hour": "*",
+            "minute": "11"
         },
         {
             "command": "",
             "restart": true,
-            "day": "*", 
-            "hour": "12", 
-            "minute": "8" 
+            "day": "*",
+            "hour": "12",
+            "minute": "8"
         }
     ]
- }
+}
+

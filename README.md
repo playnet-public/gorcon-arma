@@ -47,13 +47,51 @@ For now both happens over rcon and therefor a working connection is required, bu
         // Wheteher or not the scheduler is enabled
         "enabled": true,
         // Path to schedule.json (keep local if not required otherwise)
-        "path": "schedule.json",
-        // The Timezone Offset from GMT (Berlin: 1)
-        "timezone": 1 
+        "path": "schedule.json"
     }
+}
+```
+
+### Schedule Manual
+The Scheduler implements a system like cronjobs. To learn more about it check out this [link](https://crontab.guru)
+```json
+{
+    "schedule": [
+        //One Schedule Event
+        {
+            // Command to be executed (if not restart)
+            "command": "say -1 Restart in 30 minutes",
+            // If the Server should be restarted (overrides command)
+            "restart": true,
+            // Day of the Week to run the Event (0-6, 0 = Sunnday, * = Every Day)
+            "day": "*",
+            // Hour of the Day to run the Event (0-23, * = Every Hour)
+            "hour": "*",
+            // Minute of the Hour to run the Event (0-60, * = Every Minute)
+            "minute": "11"
+        },
+        
+        // Example Event to restart the Server every day at 12:08am
+        {
+            "command": "",
+            "restart": true,
+            "day": "*",
+            "hour": "12",
+            "minute": "8"
+        },
+
+        // Example Event to restart the Server every hour at xx:30am/pm
+        {
+            "command": "",
+            "restart": true,
+            "day": "*",
+            "hour": "*",
+            "minute": "30"
+        }
+    ]
 }
 ```
 
 ## License
 This project is licensed under the included License (GNU GPLv3).
-Powered by https://play-net.org
+Powered by https://play-net.org.
