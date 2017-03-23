@@ -158,14 +158,14 @@ func (c *Client) SetEventWriter(w io.Writer) {
 }
 
 //RunCommand adds given cmd to command queue
-func (c *Client) RunCommand(cmd []byte, w io.WriteCloser) {
-	c.cmdChan <- transmission{command: cmd, writeCloser: w}
+func (c *Client) RunCommand(cmd string, w io.WriteCloser) {
+	c.cmdChan <- transmission{command: []byte(cmd), writeCloser: w}
 }
 
 func (c *Client) handleResponse(seq byte, response []byte, last bool) {
-	c.cmdLock.Lock()
+	c.cmdLock.RLock()
 	trm, ex := c.cmdMap[seq]
-	c.cmdLock.Unlock()
+	c.cmdLock.RUnlock()
 	if !ex {
 		if len(response) == 0 {
 			c.sequence.Lock()

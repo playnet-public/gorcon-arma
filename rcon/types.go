@@ -44,18 +44,19 @@ type Client struct {
 	keepAliveTolerance int64
 	reconnectTimeout   int
 
+	init       bool
 	con        *net.UDPConn
 	readBuffer []byte
 	cmdChan    chan transmission
 	looping    bool
 
 	sequence struct {
-		sync.Mutex
+		sync.RWMutex
 		s byte
 	}
 
 	cmdMap  map[byte]transmission
-	cmdLock sync.Mutex
+	cmdLock sync.RWMutex
 
 	keepAliveCount int64
 	pingbackCount  int64

@@ -54,14 +54,16 @@ func (w *Watcher) buildJobs() error {
 		glog.Info(fmt.Sprintf("%s %s * * %s", minute, hour, day))
 		if restart {
 			err := w.cron.AddFunc(fmt.Sprintf("0 %s %s * * %s", minute, hour, day), func() {
-				glog.Infoln("Restart Event Placeholder")
+				glog.V(2).Infoln("Sending Restart Command to Channel")
+				w.cmdChan <- "#restartserver"
 			})
 			if err != nil {
 				return err
 			}
 		} else {
 			err := w.cron.AddFunc(fmt.Sprintf("0 %s %s * * %s", minute, hour, day), func() {
-				glog.Infoln("Command Placeholder: ", command)
+				glog.V(2).Infoln("Sending Command to Channel: ", command)
+				w.cmdChan <- command
 			})
 			if err != nil {
 				return err
