@@ -18,7 +18,10 @@ func Test_getSequence(t *testing.T) {
 	}
 
 	for _, v := range tests {
-		result := getSequence(v.test)
+		result, err := getSequence(v.test)
+		if err != nil {
+			t.Error("Packet Size mismatch")
+		}
 		if result != v.expected {
 			t.Error("Expected:", v.expected, "Got:", result)
 		}

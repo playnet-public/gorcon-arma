@@ -10,6 +10,8 @@
     },
     "scheduler": {
         "enabled": true,
-        "path": "schedule.json"
+        "path": "schedule.json",
+        "logToFile": true,
+        "logFolder": "logs"
     }
 }

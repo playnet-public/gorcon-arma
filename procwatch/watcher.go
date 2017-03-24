@@ -1,6 +1,7 @@
 package procwatch
 
 import (
+	"io"
 	"os/exec"
 	"path"
 	"sync"
@@ -38,6 +39,8 @@ type Watcher struct {
 	schedule  Schedule
 	cron      cron.Cron
 	cmdChan   chan string
+	stdout    io.ReadCloser
+	stderr    io.ReadCloser
 }
 
 //New creates a Procwatch with given Config
@@ -55,10 +58,18 @@ func New(w Config) *Watcher {
 
 //Start the Server
 func (w *Watcher) Start() {
+	var err error
 	w.cmd = exec.Command(w.a3exe, w.a3par)
 	w.cmd.Dir = path.Dir(w.a3exe)
-	err := w.cmd.Start()
-	if err == nil {
+	w.stdout, err = w.cmd.StdoutPipe()
+	if err != nil {
+		glog.Error(err)
+	}
+	w.stderr, err = w.cmd.StderrPipe()
+	if err != nil {
+		glog.Error(err)
+	}
+	if err := w.cmd.Start(); err == nil {
 		w.pid = uint32(w.cmd.Process.Pid)
 		w.waitGroup = sync.WaitGroup{}
 		w.waitGroup.Add(1)
@@ -78,6 +89,13 @@ func (w *Watcher) GetCmdChannel() chan string {
 		return w.cmdChan
 	}
 	return nil
+}
+
+//GetOutput returns the Stderr and Stdout Readers
+func (w *Watcher) GetOutput() (stderr, stdout *io.ReadCloser) {
+	stderr = &w.stderr
+	stdout = &w.stdout
+	return
 }
 
 //Wait for Server to exit

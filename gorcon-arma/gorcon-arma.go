@@ -1,11 +1,15 @@
 package main
 
 import (
+	"bufio"
 	"flag"
 	"fmt"
 	"io"
 	"net"
+	"os"
+	"path"
 	"runtime"
+	"time"
 
 	"play-net.org/gorcon-arma/procwatch"
 	"play-net.org/gorcon-arma/rcon"
@@ -46,12 +50,16 @@ func main() {
 func do() error {
 	cfg = getConfig()
 	useSched := cfg.GetBool("scheduler.enabled")
+	logToFile := cfg.GetBool("scheduler.logToFile")
+	logFolder := cfg.GetString("scheduler.logFolder")
 	useRcon := true
 
 	var err error
 	var watcher *procwatch.Watcher
 	var client *rcon.Client
 	var cmdChan chan string
+	var stdout *io.ReadCloser
+	var stderr *io.ReadCloser
 
 	// TODO: Refactor so scheduler and watcher are enabled seperately
 	if useSched {
@@ -61,6 +69,10 @@ func do() error {
 			return err
 		}
 		cmdChan = watcher.GetCmdChannel()
+		stderr, stdout = watcher.GetOutput()
+		if logToFile {
+			go runLogger(stdout, stderr, logFolder)
+		}
 	} else {
 		glog.Info("Scheduler is disabled")
 	}
@@ -134,6 +146,21 @@ func runRcon() (*rcon.Client, error) {
 	client := rcon.New(becfg)
 	client.WatcherLoop()
 	return client, nil
+}
+
+func runLogger(stdout, stderr *io.ReadCloser, logFolder string) {
+	t := time.Now()
+	logFileName := fmt.Sprintf("server_log_%v-%d-%v_%v-%v-%v.log", t.Day(), t.Month(), t.Year(), t.Hour(), t.Minute(), t.Second())
+	logFile, err := os.Create(path.Join(logFolder, logFileName))
+	if err != nil {
+		panic(err)
+	}
+	defer logFile.Close()
+
+	writer := bufio.NewWriter(logFile)
+	defer writer.Flush()
+	go io.Copy(writer, *stdout)
+	go io.Copy(writer, *stderr)
 }
 
 func pipeCommands(cmdChan chan string, c *rcon.Client, w io.WriteCloser) {

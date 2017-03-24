@@ -47,7 +47,11 @@ For now both happens over rcon and therefor a working connection is required, bu
         // Wheteher or not the scheduler is enabled
         "enabled": true,
         // Path to schedule.json (keep local if not required otherwise)
-        "path": "schedule.json"
+        "path": "schedule.json",
+        // Enable or Disable stderr/stdout logging of game server (useful on linux systems)
+        "logToFile": true,
+        // Set the folder path in which logfiles are being created
+        "logFolder": "logs"
     }
 }
 ```
