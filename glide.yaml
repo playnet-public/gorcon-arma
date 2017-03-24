@@ -1,6 +1,0 @@
-package: play-net.org/gorcon-arma
-import:
-- package: github.com/golang/glog
-- package: github.com/robfig/cron
-  version: v1
-- package: github.com/spf13/viper

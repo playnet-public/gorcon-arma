@@ -25,22 +25,11 @@ binary:
 crossbinary: ## cross build the non-linux binaries
 	./script/make.sh generate crossbinary
 
-test: ## run the unit and integration tests
-	./script/make.sh generate test-unit binary test-integration
-
-test-unit: ## run the unit tests
-	./script/make.sh generate test-unit
-
-test-integration: ## run the integration tests
-	./script/make.sh generate binary test-integration
-
 validate: ## validate gofmt, golint and go vet
-	./script/make.sh  validate-glide validate-gofmt validate-govet validate-golint validate-misspell
+	./script/make.sh  validate-gofmt validate-govet validate-golint
 
 dist:
 	mkdir dist
-
-all: test install
 install:
 	GOBIN=$(GOPATH)/bin GO15VENDOREXPERIMENT=1 go install gorcon-arma/*.go
 test:
@@ -63,7 +52,6 @@ prepare:
 	go get -u github.com/golang/lint/golint
 	go get -u github.com/kisielk/errcheck
 	go get -u github.com/bborbe/debian_utils/bin/create_debian_package
-	glide install
 update:
 	glide up
 clean:
