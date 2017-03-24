@@ -1,6 +1,10 @@
 # GoRcon-ArmA
 The Go based Rcon solution for ArmA servers with server management features
 
+Master: [![build status](https://git.play-net.org/playnet-public/gorcon-arma/badges/master/build.svg)](https://git.play-net.org/playnet-public/gorcon-arma/commits/master)
+Develop: [![build status](https://git.play-net.org/playnet-public/gorcon-arma/badges/develop/build.svg)](https://git.play-net.org/playnet-public/gorcon-arma/commits/develop)
+
+
 ## Features
 
 Planned: 
