@@ -29,11 +29,13 @@ packagePush:
   before_script:
   - source script/prepare
   - make prepare
+  - tar cfz gorcon-arma-${VERSION}.src.tar.gz --exclude-vcs dist
   - cp config.json dist/
   - cp schedule.json dist/
-  - tar cfz gorcon-arma-${VERSION}.src.tar.gz --exclude-vcs dist
+  - cp README.md dist/
   - make install
   - VERSION=$VERSION make package
+  - cp gorcon-arma-${VERSION}.src.tar.gz dist/
   - cp /go/gorcon-arma_${VERSION}.deb dist/
   script:
   - curl -T dist/gorcon-arma_${VERSION}.deb -ufinch:$BINTRAY_API https://api.bintray.com/content/playnet/debian/GoRcon-ArmA/$VERSION/gorcon-arma-${VERSION}.deb
