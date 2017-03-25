@@ -39,3 +39,6 @@ packagePush:
   only:
   - tags
   when: on_success
+  artifacts:
+    paths:
+    - dist/
