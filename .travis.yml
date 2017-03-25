@@ -7,6 +7,7 @@ env:
   - REPO: $TRAVIS_REPO_SLUG
   - VERSION: $TRAVIS_TAG
 install:
+- source script/prepare
 - make prepare
 before_script:
 - make validate
