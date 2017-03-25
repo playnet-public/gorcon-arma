@@ -18,6 +18,10 @@
 			"target": "/opt/play-net/gorcon-arma/bin/config.json"
 		},
 		{
+			"source": "src/play-net.org/gorcon-arma/schedule.json",
+			"target": "/opt/play-net/gorcon-arma/bin/schedule.json"
+		},
+		{
 			"source": "src/play-net.org/gorcon-arma/deb/gorcon-arma.service",
 			"target": "/etc/systemd/system/gorcon-arma.service"
 		}
