@@ -45,7 +45,11 @@ For now both happens over rcon and therefor a working connection is required, bu
         // The amount of seconds to wait until a keepAlivePacket is send to RCon (BattlEye Specification is min. 45sec)
         "keepAliveTimer": 10, 
         // The maximum tolerance between the sent keepAlives and the Servers response (higher means slower detection of disconnect, lower might cause unrequired reconnects)
-        "keepAliveTolerance": 4 
+        "keepAliveTolerance": 4,
+        // Whether or not the Server Chat should be streamed to the console/stdout
+        "showChat": true,
+        // Whether or not the Server Events should be streamed to the console/stdout
+        "showEvents": true
     },
     "scheduler": {
         // Wheteher or not the scheduler is enabled
@@ -55,7 +59,9 @@ For now both happens over rcon and therefor a working connection is required, bu
         // Enable or Disable stderr/stdout logging of game server (useful on linux systems)
         "logToFile": true,
         // Set the folder path in which logfiles are being created
-        "logFolder": "logs"
+        "logFolder": "logs",
+        // Enables streaming of the server output(logs) to the console (warning: might be very verbose)
+        "logToConsole": false
     }
 }
 ```

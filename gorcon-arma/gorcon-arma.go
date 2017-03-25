@@ -52,7 +52,10 @@ func do() error {
 	useSched := cfg.GetBool("scheduler.enabled")
 	logToFile := cfg.GetBool("scheduler.logToFile")
 	logFolder := cfg.GetString("scheduler.logFolder")
+	logToConsole := cfg.GetBool("scheduler.logToConsole")
 	useRcon := true
+	showChat := cfg.GetBool("arma.showChat")
+	showEvents := cfg.GetBool("arma.showEvents")
 
 	var err error
 	var watcher *procwatch.Watcher
@@ -60,8 +63,9 @@ func do() error {
 	var cmdChan chan string
 	var stdout *io.ReadCloser
 	var stderr *io.ReadCloser
+	consoleOut, consoleIn := io.Pipe()
 
-	// TODO: Refactor so scheduler and watcher are enabled seperately
+	// TODO: Refactor so scheduler and watcher are enabled separately
 	if useSched {
 		glog.Infof("Scheduler is enabled")
 		watcher, err = runWatcher()
@@ -71,7 +75,10 @@ func do() error {
 		cmdChan = watcher.GetCmdChannel()
 		stderr, stdout = watcher.GetOutput()
 		if logToFile {
-			go runLogger(stdout, stderr, logFolder)
+			go runFileLogger(stdout, stderr, logFolder)
+		}
+		if logToConsole {
+			go runConsoleLogger(stdout, stderr, consoleIn)
 		}
 	} else {
 		glog.Info("Scheduler is disabled")
@@ -85,13 +92,26 @@ func do() error {
 		}
 		client.RunCommand("say -1 PlayNet GoRcon-ArmA Connected", nil)
 		if useSched {
-			go pipeCommands(cmdChan, client, nil)
+			go pipeCommands(cmdChan, client, consoleIn)
+		}
+		if showChat {
+			client.SetChatWriter(consoleIn)
+		}
+		if showEvents {
+			client.SetEventWriter(consoleIn)
 		}
 	} else {
 		glog.Infof("RCon is disabled")
 	}
 
+	consoleScanner := bufio.NewScanner(consoleOut)
 	for {
+		for consoleScanner.Scan() {
+			fmt.Printf(consoleScanner.Text())
+		}
+		if err := consoleScanner.Err(); err != nil {
+			fmt.Fprintln(os.Stderr, "There was an error with the consoleScanner", err)
+		}
 	}
 }
 
@@ -148,7 +168,7 @@ func runRcon() (*rcon.Client, error) {
 	return client, nil
 }
 
-func runLogger(stdout, stderr *io.ReadCloser, logFolder string) {
+func runFileLogger(stdout, stderr *io.ReadCloser, logFolder string) {
 	t := time.Now()
 	logFileName := fmt.Sprintf("server_log_%v-%d-%v_%v-%v-%v.log", t.Day(), t.Month(), t.Year(), t.Hour(), t.Minute(), t.Second())
 	logFile, err := os.Create(path.Join(logFolder, logFileName))
@@ -161,6 +181,11 @@ func runLogger(stdout, stderr *io.ReadCloser, logFolder string) {
 	defer writer.Flush()
 	go io.Copy(writer, *stdout)
 	go io.Copy(writer, *stderr)
+}
+
+func runConsoleLogger(stdout, stderr *io.ReadCloser, console io.Writer) {
+	std := io.MultiReader(*stderr, *stdout)
+	go io.Copy(console, std)
 }
 
 func pipeCommands(cmdChan chan string, c *rcon.Client, w io.WriteCloser) {

@@ -24,7 +24,7 @@ func Test_getChecksum(t *testing.T) {
 			t.Error(err)
 		}
 		if res != v.expected {
-			t.Error("Expected:", v.expected, "Recieved:", res)
+			t.Error("Expected:", v.expected, "Received:", res)
 		}
 	}
 }
