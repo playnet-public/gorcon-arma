@@ -31,7 +31,7 @@ packagePush:
   - make prepare
   - cp config.json dist/
   - cp schedule.json dist/
-  - tar cfz gorcon-arma-${VERSION}.src.tar.gz --exclude-vcs --exclude dist
+  - tar cfz gorcon-arma-${VERSION}.src.tar.gz --exclude-vcs dist
   - make install
   - VERSION=$VERSION make package
   - cp /go/gorcon-arma_${VERSION}.deb dist/
