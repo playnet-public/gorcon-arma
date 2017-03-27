@@ -27,8 +27,6 @@ build:
 package:
   stage: build
   script:
-  - source script/prepare
-  - make prepare
   - tar cfz gorcon-arma-${VERSION}.src.tar.gz --exclude-vcs dist
   - cp config.json dist/
   - cp schedule.json dist/
@@ -37,9 +35,6 @@ package:
   - VERSION=$VERSION make package
   - cp gorcon-arma-${VERSION}.src.tar.gz dist/
   - cp /go/gorcon-arma_${VERSION}.deb dist/
-  only:
-  - tags
-  when: on_success
   environment:
     name: storage
     url: https://storage.play-net.org/minio/gorcon-arma
