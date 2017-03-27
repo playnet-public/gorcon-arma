@@ -24,9 +24,9 @@ build:
     paths:
     - dist/
 
-packagePush:
-  stage: push
-  before_script:
+package:
+  stage: build
+  script:
   - source script/prepare
   - make prepare
   - tar cfz gorcon-arma-${VERSION}.src.tar.gz --exclude-vcs dist
@@ -37,9 +37,23 @@ packagePush:
   - VERSION=$VERSION make package
   - cp gorcon-arma-${VERSION}.src.tar.gz dist/
   - cp /go/gorcon-arma_${VERSION}.deb dist/
+  only:
+  - tags
+  when: on_success
+  environment:
+    name: storage
+    url: https://storage.play-net.org/minio/gorcon-arma
+  artifacts:
+    paths:
+    - dist/
+
+push:
+  stage: push
+  image: python:latest
   script:
+  - pip install awscli
+  - aws --endpoint-url https://storage.play-net.org s3 cp ./dist/ s3://gorcon-arma/artifacts --recursive --include "*"
   - curl -T dist/gorcon-arma_${VERSION}.deb -ufinch:$BINTRAY_API https://api.bintray.com/content/playnet/debian/GoRcon-ArmA/$VERSION/gorcon-arma-${VERSION}.deb
-  - curl -T gorcon-arma-${VERSION}.src.tar.gz -ufinch:$BINTRAY_API https://api.bintray.com/content/playnet/tarballs/GoRcon-ArmA/$VERSION/gorcon-arma-${VERSION}.src.tar.gz
   only:
   - tags
   when: on_success
