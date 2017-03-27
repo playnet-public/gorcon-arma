@@ -43,6 +43,9 @@ packagePush:
   only:
   - tags
   when: on_success
+  environment:
+    name: storage
+    url: https://storage.play-net.org/minio/gorcon-arma
   artifacts:
     paths:
     - dist/
