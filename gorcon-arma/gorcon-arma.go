@@ -11,8 +11,8 @@ import (
 	"runtime"
 	"time"
 
+	rcon "play-net.org/bercon"
 	"play-net.org/gorcon-arma/procwatch"
-	"play-net.org/gorcon-arma/rcon"
 
 	"github.com/golang/glog"
 	"github.com/spf13/viper"
