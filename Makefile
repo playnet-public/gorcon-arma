@@ -52,6 +52,7 @@ prepare:
 	go get -u github.com/golang/lint/golint
 	go get -u github.com/kisielk/errcheck
 	go get -u github.com/bborbe/debian_utils/bin/create_debian_package
+	go get -u git.play-net.org/playnet-public/bercon
 update:
 	glide up
 clean:
