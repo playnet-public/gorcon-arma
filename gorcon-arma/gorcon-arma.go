@@ -11,8 +11,8 @@ import (
 	"runtime"
 	"time"
 
-	rcon "play-net.org/bercon"
-	"play-net.org/gorcon-arma/procwatch"
+	rcon "git.play-net.org/playnet-public/bercon"
+	"git.play-net.org/playnet-public/gorcon-arma/procwatch"
 
 	"github.com/golang/glog"
 	"github.com/spf13/viper"
@@ -32,18 +32,19 @@ func main() {
 	defer glog.Flush()
 	glog.CopyStandardLogTo("info")
 	flag.Parse()
-	glog.Infoln("-- PlayNet GoRcon-ArmA - OpenSource Server Manager --")
-	glog.Infoln("Version: 0.1.4")
-	glog.Infoln("SourceCode: http://bit.ly/gorcon-code")
-	glog.Infoln("Tasks: http://bit.ly/gorcon-tasks")
-	glog.Infoln("")
-	glog.Infoln("This project is work in progress - Use at your own risk")
-	glog.Infoln("--")
-	glog.Infof("Using %d go procs", *maxprocsPtr)
+	fmt.Println("-- PlayNet GoRcon-ArmA - OpenSource Server Manager --")
+	fmt.Println("Version: 0.1.4")
+	fmt.Println("SourceCode: http://bit.ly/gorcon-code")
+	fmt.Println("Tasks: http://bit.ly/gorcon-tasks")
+	fmt.Println("")
+	fmt.Println("This project is work in progress - Use at your own risk")
+	fmt.Println("--")
+	fmt.Println("")
+	fmt.Printf("Using %d go procs\n", *maxprocsPtr)
 	runtime.GOMAXPROCS(*maxprocsPtr)
 
 	if err := do(); err != nil {
-		glog.Exit(err)
+		glog.Fatal(err)
 	}
 }
 
@@ -64,10 +65,10 @@ func do() error {
 	var stdout *io.ReadCloser
 	var stderr *io.ReadCloser
 	consoleOut, consoleIn := io.Pipe()
-
+	go streamConsole(consoleOut)
 	// TODO: Refactor so scheduler and watcher are enabled separately
 	if useSched {
-		glog.Infof("Scheduler is enabled")
+		fmt.Println("Scheduler is enabled")
 		watcher, err = runWatcher()
 		if err != nil {
 			return err
@@ -81,18 +82,17 @@ func do() error {
 			go runConsoleLogger(stdout, stderr, consoleIn)
 		}
 	} else {
-		glog.Info("Scheduler is disabled")
+		fmt.Println("Scheduler is disabled")
 	}
 
 	if useRcon {
-		glog.Infof("RCon is enabled")
+		fmt.Println("RCon is enabled")
 		client, err = runRcon()
 		if err != nil {
 			return err
 		}
-		client.RunCommand("say -1 PlayNet GoRcon-ArmA Connected", nil)
 		if useSched {
-			go pipeCommands(cmdChan, client, consoleIn)
+			go pipeCommands(cmdChan, client, nil)
 		}
 		if showChat {
 			client.SetChatWriter(consoleIn)
@@ -100,18 +100,13 @@ func do() error {
 		if showEvents {
 			client.SetEventWriter(consoleIn)
 		}
+		client.RunCommand("say -1 PlayNet GoRcon-ArmA Connected", nil)
+		client.RunCommand("players", nil)
 	} else {
-		glog.Infof("RCon is disabled")
+		fmt.Println("RCon is disabled")
 	}
 
-	consoleScanner := bufio.NewScanner(consoleOut)
 	for {
-		for consoleScanner.Scan() {
-			fmt.Printf(consoleScanner.Text())
-		}
-		if err := consoleScanner.Err(); err != nil {
-			fmt.Fprintln(os.Stderr, "There was an error with the consoleScanner", err)
-		}
 	}
 }
 
@@ -123,10 +118,10 @@ func runWatcher() (*procwatch.Watcher, error) {
 	}
 	armaPath := cfg.GetString("arma.path")
 	armaParam := cfg.GetString("arma.param")
-	glog.Infof("\nScheduler Config: \n"+
+	fmt.Printf("\nScheduler Config: \n"+
 		"Path to scheduler.json: %v \n"+
 		"Path to ArmA Executable: %v \n"+
-		"ArmA Parameters: %v \n",
+		"ArmA Parameters: %v \n\n",
 		schedulerPath, armaPath, armaParam)
 	pwcfg := procwatch.Cfg{
 		A3exe:    armaPath,
@@ -150,11 +145,11 @@ func runRcon() (*rcon.Client, error) {
 		glog.Errorln("Could not convert ArmA IP and Port")
 		return nil, err
 	}
-	glog.Infof("\nRCon Config: \n"+
+	fmt.Printf("\nRCon Config: \n"+
 		"ArmA Server Address: %v \n"+
 		"ArmA Server Port: %v \n"+
 		"KeepAliveTimer: %v \n"+
-		"KeepAliveTolerance: %v",
+		"KeepAliveTolerance: %v \n\n",
 		armaIP, armaPort, armaKeepAliveTimer, armaKeepAliveTolerance)
 	becfg := rcon.Config{
 		Addr:               udpadr,
@@ -170,7 +165,8 @@ func runRcon() (*rcon.Client, error) {
 
 func runFileLogger(stdout, stderr *io.ReadCloser, logFolder string) {
 	t := time.Now()
-	logFileName := fmt.Sprintf("server_log_%v-%d-%v_%v-%v-%v.log", t.Day(), t.Month(), t.Year(), t.Hour(), t.Minute(), t.Second())
+	logFileName := fmt.Sprintf("server_log_%v%d%v_%v-%v-%v.log", t.Year(), t.Month(), t.Day(), t.Hour(), t.Minute(), t.Second())
+	fmt.Println("Creating Server Logfile: ", logFileName)
 	logFile, err := os.Create(path.Join(logFolder, logFileName))
 	if err != nil {
 		panic(err)
@@ -188,12 +184,22 @@ func runConsoleLogger(stdout, stderr *io.ReadCloser, console io.Writer) {
 	go io.Copy(console, std)
 }
 
+func streamConsole(consoleOut io.Reader) error {
+	consoleScanner := bufio.NewScanner(consoleOut)
+	for consoleScanner.Scan() {
+		fmt.Println(consoleScanner.Text())
+	}
+	if err := consoleScanner.Err(); err != nil {
+		fmt.Fprintln(os.Stderr, "There was an error with the consoleScanner", err)
+		return err
+	}
+	return nil
+}
+
 func pipeCommands(cmdChan chan string, c *rcon.Client, w io.WriteCloser) {
 	for {
 		cmd := <-cmdChan
 		if len(cmd) != 0 {
-			//TODO: Evaluate if this is good
-			w.Write([]byte("Running Command: " + cmd))
 			c.RunCommand(cmd, w)
 		}
 	}
