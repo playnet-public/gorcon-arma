@@ -33,6 +33,8 @@ package:
   - make install
   - VERSION=$VERSION make package
   - cp /go/gorcon-arma_${VERSION}.deb .
+  only:
+  - tags
   environment:
     name: storage
     url: https://storage.play-net.org/minio/gorcon-arma
