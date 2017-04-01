@@ -62,6 +62,6 @@ package:
 	-logtostderr \
 	-v=2 \
 	-version=$(VERSION) \
-	-config=src/play-net.org/gorcon-arma/deb/create_deb_config.json
+	-config=src/git.play-net.org/playnet-public/gorcon-arma/deb/create_deb_config.json
 
 
