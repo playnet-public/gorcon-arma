@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io/ioutil"
 
+	"syscall"
+
 	"github.com/golang/glog"
 )
 
@@ -54,8 +56,21 @@ func (w *Watcher) buildJobs() error {
 		glog.Info(fmt.Sprintf("%s %s * * %s", minute, hour, day))
 		if restart {
 			err := w.cron.AddFunc(fmt.Sprintf("0 %s %s * * %s", minute, hour, day), func() {
+				/* Experimantal Switch to SIGTERM Restart
 				glog.V(2).Infoln("Sending Restart Command to Channel")
 				w.cmdChan <- "#restartserver"
+				*/
+				glog.V(2).Infoln("Sending Termination Signal to Process")
+				err := w.cmd.Process.Signal(syscall.SIGTERM)
+				if err != nil {
+					if err.Error() != "not supported by windows" {
+						glog.Error(err)
+					}
+					err := w.cmd.Process.Signal(syscall.SIGKILL)
+					if err != nil {
+						glog.Error(err)
+					}
+				}
 			})
 			if err != nil {
 				return err

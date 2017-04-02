@@ -61,6 +61,7 @@ func (w *Watcher) Start() {
 	var err error
 	w.cmd = exec.Command(w.a3exe, w.a3par)
 	w.cmd.Dir = path.Dir(w.a3exe)
+	glog.V(2).Infof("Executing ArmA Executable: %v", w.cmd)
 	w.stdout, err = w.cmd.StdoutPipe()
 	if err != nil {
 		glog.Error(err)
@@ -69,7 +70,8 @@ func (w *Watcher) Start() {
 	if err != nil {
 		glog.Error(err)
 	}
-	if err := w.cmd.Start(); err == nil {
+	err = w.cmd.Start()
+	if err == nil {
 		w.pid = uint32(w.cmd.Process.Pid)
 		w.waitGroup = sync.WaitGroup{}
 		w.waitGroup.Add(1)
@@ -79,6 +81,7 @@ func (w *Watcher) Start() {
 			glog.Error(err)
 		}
 	} else {
+		glog.Fatalln(err)
 		return
 	}
 }
