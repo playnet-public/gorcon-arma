@@ -1,10 +1,9 @@
 {
     "arma": {
+        "enabled": true,
         "ip": "127.0.0.1",
         "port": "2301",
         "password": "qwerty",
-        "path": "D:/Program Files (x86)/Steam/SteamApps/common/Arma 3/arma3server.exe",
-        "param": "-name=goTest",
         "keepAliveTimer": 10,
         "keepAliveTolerance": 4,
         "showChat": true,
@@ -12,7 +11,12 @@
     },
     "scheduler": {
         "enabled": true,
-        "path": "schedule.json",
+        "path": "schedule.json"
+    },
+    "watcher": {
+        "enabled": true,
+        "path": "D:/Program Files (x86)/Steam/SteamApps/common/Arma 3/arma3server.exe",
+        "params": "-name=goTest",
         "logToFile": true,
         "logFolder": "logs",
         "logToConsole": false

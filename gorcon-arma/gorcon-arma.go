@@ -51,10 +51,11 @@ func main() {
 func do() error {
 	cfg = getConfig()
 	useSched := cfg.GetBool("scheduler.enabled")
-	logToFile := cfg.GetBool("scheduler.logToFile")
-	logFolder := cfg.GetString("scheduler.logFolder")
-	logToConsole := cfg.GetBool("scheduler.logToConsole")
-	useRcon := true
+	useWatch := cfg.GetBool("watcher.enabled")
+	useRcon := cfg.GetBool("arma.enabled")
+	logToFile := cfg.GetBool("watcher.logToFile")
+	logFolder := cfg.GetString("watcher.logFolder")
+	logToConsole := cfg.GetBool("watcher.logToConsole")
 	showChat := cfg.GetBool("arma.showChat")
 	showEvents := cfg.GetBool("arma.showEvents")
 
@@ -69,16 +70,16 @@ func do() error {
 	// TODO: Refactor so scheduler and watcher are enabled separately
 	if useSched {
 		fmt.Println("Scheduler is enabled")
-		watcher, err = runWatcher()
+		watcher, err = runWatcher(useSched, useWatch)
 		if err != nil {
 			return err
 		}
 		cmdChan = watcher.GetCmdChannel()
 		stderr, stdout = watcher.GetOutput()
-		if logToFile {
+		if logToFile && useWatch {
 			go runFileLogger(stdout, stderr, logFolder)
 		}
-		if logToConsole {
+		if logToConsole && useWatch {
 			go runConsoleLogger(stdout, stderr, consoleIn)
 		}
 	} else {
@@ -110,23 +111,27 @@ func do() error {
 	}
 }
 
-func runWatcher() (*procwatch.Watcher, error) {
+func runWatcher(useSched, useWatch bool) (*procwatch.Watcher, error) {
 	schedulerPath := procwatch.SchedulePath(cfg.GetString("scheduler.path"))
 	schedulerEntity, err := schedulerPath.Parse()
 	if err != nil {
 		return nil, err
 	}
-	armaPath := cfg.GetString("arma.path")
-	armaParam := cfg.GetString("arma.param")
-	fmt.Printf("\nScheduler Config: \n"+
-		"Path to scheduler.json: %v \n"+
-		"Path to ArmA Executable: %v \n"+
-		"ArmA Parameters: %v \n\n",
-		schedulerPath, armaPath, armaParam)
+	armaPath := cfg.GetString("watcher.path")
+	armaParam := cfg.GetString("watcher.params")
+	if useWatch {
+		fmt.Printf("\nWatcher Config: \n"+
+			"Path to scheduler.json: %v \n"+
+			"Path to ArmA Executable: %v \n"+
+			"ArmA Parameters: %v \n\n",
+			schedulerPath, armaPath, armaParam)
+	}
 	pwcfg := procwatch.Cfg{
-		A3exe:    armaPath,
-		A3par:    armaParam,
-		Schedule: *schedulerEntity,
+		A3exe:        armaPath,
+		A3par:        armaParam,
+		Schedule:     *schedulerEntity,
+		UseScheduler: useSched,
+		UseWatcher:   useWatch,
 	}
 
 	watcher := procwatch.New(pwcfg)
@@ -159,6 +164,7 @@ func runRcon() (*rcon.Client, error) {
 	}
 
 	client := rcon.New(becfg)
+	fmt.Println("Establishing Connection to Server")
 	client.WatcherLoop()
 	return client, nil
 }

@@ -7,41 +7,50 @@ Develop: [![build status](https://git.play-net.org/playnet-public/gorcon-arma/ba
 
 ## Features
 
+Implemented:
+* Stable and Secure Rcon Connection
+* Allow Management of Rcon Servers
+	* Automated Server Restarts
+	* Sending timed Messages/Commands to Servers
+	* Server WatchDog
+	* Streaming in-game Chats and Events to Console
+	* Sending Server Log to Files (on Linux)
+  
 Planned: 
-* Stable and Secure Rcon Connection with easy to use Interfaces
+* Various Interfaces (API, CLI)
 * Allow Management of Rcon Servers
   * Executing Rcon Commands
-  * Automated Server Restarts
-  * Sending timed Messages to Players
   * Offline Whitelisting
   * Providing in-game Chats to Interfaces
-  * Server WatchDog
 * Offering ease of use with exisiting Tools
-* In addition to that, it is planned to make this Project extendible with Plugins
+* In addition to that, it is planned to make this Project extensible with Plugins
 
 ## Usage
 
 The Tool consists of several parts.
-Main Part is the rcon library which connects to a given Server and sends commands/handles responses.
-The other part yet integrated is the scheduler. It allows to define time sets when commands should be executed.
+Main Part is the RCon library which connects to a given Server and sends commands/handles responses.
+The other parts yet integrated are the Watcher and Scheduler.
 
-The Scheduler is able to either send a String over RCon (like: say -1 hello all) or send a restart command.
-For now both happens over rcon and therefor a working connection is required, but in the near future it is planned to also send the exit command to the process itself.
+### The Watcher
+The Watcher is responsible for starting and watching your game process. When using the Watcher you always have to let the Tool start your ArmA Server otherwise the process won't be detected.
+
+### The Scheduler
+The Scheduler is able to either send a String over RCon (like: say -1 hello all) or send a restart command. If the Watcher is enabled, the restart will be done by sending a SIGTERM/SIGKILL to the Process. If there is only RCon the restart will send a '#restartserver' command. Please note that without any watcher your server might not come back up.
+Note that the Scheduler has it's own schedule.json file containing the timetable (see below).
+
 
 ### Config Manual
 ```json
 {
     "arma": {
+        // Whether or not RCon is enabled
+        "enabled": true,
         // IP of the RCon Server
         "ip": "127.0.0.1",
         // RCon Port as set in beserver.cfg
         "port": "2301", 
         // RCon Password as set in beserver.cfg
         "password": "qwerty", 
-        // Path to the ArmA executable (linux or windows)
-        "path": "D:/Program Files (x86)/Steam/SteamApps/common/Arma 3/arma3server.exe", 
-        // single string of parameters for ArmA (watch formating for linux)
-        "param": "-name=goTest",
         // The amount of seconds to wait until a keepAlivePacket is send to RCon (BattlEye Specification is min. 45sec)
         "keepAliveTimer": 10, 
         // The maximum tolerance between the sent keepAlives and the Servers response (higher means slower detection of disconnect, lower might cause unrequired reconnects)
@@ -51,11 +60,21 @@ For now both happens over rcon and therefor a working connection is required, bu
         // Whether or not the Server Events should be streamed to the console/stdout
         "showEvents": true
     },
+
     "scheduler": {
         // Wheteher or not the scheduler is enabled
         "enabled": true,
         // Path to schedule.json (keep local if not required otherwise)
         "path": "schedule.json",
+    },
+
+    "watcher": {
+        // Wheteher or not the watcher is enabled
+        "enabled": true,
+        // Path to the ArmA executable (linux or windows)
+        "path": "D:/Program Files (x86)/Steam/SteamApps/common/Arma 3/arma3server.exe", 
+        // single string of parameters for ArmA (watch formating for linux)
+        "params": "-name=goTest",
         // Enable or Disable stderr/stdout logging of game server (useful on linux systems)
         "logToFile": true,
         // Set the folder path in which logfiles are being created
@@ -76,7 +95,7 @@ The Scheduler implements a system like cronjobs. To learn more about it check ou
             // Command to be executed (if not restart)
             "command": "say -1 Restart in 30 minutes",
             // If the Server should be restarted (overrides command)
-            "restart": true,
+            "restart": false,
             // Day of the Week to run the Event (0-6, 0 = Sunnday, * = Every Day)
             "day": "*",
             // Hour of the Day to run the Event (0-23, * = Every Hour)
@@ -109,6 +128,6 @@ The Scheduler implements a system like cronjobs. To learn more about it check ou
 ## License
 This project is licensed under the included License (GNU GPLv3).
 We also ask you to keep the projects name and links as they are, to direct possible contributors and users to the original sources.
-Do not host releases yourself and redirect users back to the official releases for downloads.
+Do not host releases yourself. Always redirect users back to the official releases for downloads.
 
 Powered by https://play-net.org.
