@@ -104,7 +104,6 @@ func do() error {
 			client.SetEventWriter(consoleIn)
 		}
 		client.RunCommand("say -1 PlayNet GoRcon-ArmA Connected", nil)
-		client.RunCommand("players", nil)
 	} else {
 		fmt.Println("RCon is disabled")
 	}
