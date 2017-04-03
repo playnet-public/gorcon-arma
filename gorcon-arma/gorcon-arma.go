@@ -59,6 +59,8 @@ func do() error {
 	showChat := cfg.GetBool("arma.showChat")
 	showEvents := cfg.GetBool("arma.showEvents")
 
+	var quit chan int
+
 	var err error
 	var watcher *procwatch.Watcher
 	var client *rcon.Client
@@ -107,8 +109,11 @@ func do() error {
 		fmt.Println("RCon is disabled")
 	}
 
-	for {
+	q := <-quit
+	if q == 1 {
+		return nil
 	}
+	return nil
 }
 
 func runWatcher(useSched, useWatch bool) (*procwatch.Watcher, error) {
