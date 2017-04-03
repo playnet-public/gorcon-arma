@@ -59,7 +59,7 @@ func do() error {
 	showChat := cfg.GetBool("arma.showChat")
 	showEvents := cfg.GetBool("arma.showEvents")
 
-	var quit chan int
+	quit := make(chan int)
 
 	var err error
 	var watcher *procwatch.Watcher
