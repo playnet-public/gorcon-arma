@@ -21,7 +21,8 @@ Planned:
 * Allow Management of Rcon Servers
   * Executing Rcon Commands
   * Offline Whitelisting
-  * Providing in-game Chats to Interfaces
+  * Provide in-game Chats to Interfaces
+	* Provide Server Performance and Host Information to Interfaces
 * Offering ease of use with exisiting Tools
 * In addition to that, it is planned to make this Project extensible with Plugins
 

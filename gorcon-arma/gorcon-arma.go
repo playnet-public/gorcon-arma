@@ -208,6 +208,7 @@ func streamConsole(consoleOut io.Reader) error {
 
 func pipeCommands(cmdChan chan string, c *rcon.Client, w io.WriteCloser) {
 	for {
+		glog.V(10).Infoln("Looping pipeCommands")
 		cmd := <-cmdChan
 		if len(cmd) != 0 {
 			c.RunCommand(cmd, w)
