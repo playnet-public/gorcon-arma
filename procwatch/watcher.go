@@ -66,6 +66,7 @@ func New(w Config) *Watcher {
 func (w *Watcher) Start() {
 	var err error
 	if w.useWatcher {
+		glog.V(2).Infoln("Starting Watcher")
 		w.cmd = exec.Command(w.a3exe, w.a3par)
 		w.cmd.Dir = path.Dir(w.a3exe)
 		glog.V(2).Infof("Executing ArmA Executable: %v", w.cmd)
@@ -90,6 +91,7 @@ func (w *Watcher) Start() {
 	}
 
 	if w.useScheduler {
+		glog.V(2).Infoln("Starting Scheduler")
 		err = w.buildJobs()
 		if err != nil {
 			glog.Error(err)
@@ -106,9 +108,15 @@ func (w *Watcher) GetCmdChannel() chan string {
 }
 
 //GetOutput returns the Stderr and Stdout Readers
-func (w *Watcher) GetOutput() (stderr, stdout *io.ReadCloser) {
-	stderr = &w.stderr
-	stdout = &w.stdout
+func (w *Watcher) GetOutput() (stderr, stdout io.ReadCloser) {
+	stderr = w.stderr
+	if stderr == nil {
+		panic("No Stderr")
+	}
+	stdout = w.stdout
+	if stderr == nil {
+		panic("No Stdout")
+	}
 	return
 }
 

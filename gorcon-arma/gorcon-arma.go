@@ -65,18 +65,20 @@ func do() error {
 	var watcher *procwatch.Watcher
 	var client *rcon.Client
 	var cmdChan chan string
-	var stdout *io.ReadCloser
-	var stderr *io.ReadCloser
+	var stdout io.ReadCloser
+	var stderr io.ReadCloser
 	consoleOut, consoleIn := io.Pipe()
 	go streamConsole(consoleOut)
 	// TODO: Refactor so scheduler and watcher are enabled separately
-	if useSched {
-		fmt.Println("Scheduler is enabled")
+	if useSched || useWatch {
+		glog.V(4).Infoln("Starting Procwatch")
 		watcher, err = runWatcher(useSched, useWatch)
 		if err != nil {
 			return err
 		}
+		glog.V(4).Infoln("Retrieving Procwatch Command Channel")
 		cmdChan = watcher.GetCmdChannel()
+		glog.V(4).Infoln("Retrieving Procwatch Output Channels")
 		stderr, stdout = watcher.GetOutput()
 		if logToFile && useWatch {
 			go runFileLogger(stdout, stderr, logFolder)
@@ -115,21 +117,35 @@ func do() error {
 	return nil
 }
 
-func runWatcher(useSched, useWatch bool) (*procwatch.Watcher, error) {
-	schedulerPath := procwatch.SchedulePath(cfg.GetString("scheduler.path"))
-	schedulerEntity, err := schedulerPath.Parse()
-	if err != nil {
-		return nil, err
+func runWatcher(useSched, useWatch bool) (watcher *procwatch.Watcher, err error) {
+	var armaPath string
+	var armaParam string
+	var schedulerEntity *procwatch.Schedule
+
+	if useSched {
+		schedulerPath := procwatch.SchedulePath(cfg.GetString("scheduler.path"))
+		schedulerEntity, err = schedulerPath.Parse()
+		if err != nil {
+			return
+		}
+		fmt.Println("\nScheduler is enabled")
+		fmt.Printf("\nScheduler Config: \n"+
+			"Path to scheduler.json: %v \n",
+			schedulerPath)
+	} else {
+		schedulerEntity = &procwatch.Schedule{}
 	}
-	armaPath := cfg.GetString("watcher.path")
-	armaParam := cfg.GetString("watcher.params")
+
 	if useWatch {
+		armaPath = cfg.GetString("watcher.path")
+		armaParam = cfg.GetString("watcher.params")
+		fmt.Println("\nWatcher is enabled")
 		fmt.Printf("\nWatcher Config: \n"+
-			"Path to scheduler.json: %v \n"+
 			"Path to ArmA Executable: %v \n"+
 			"ArmA Parameters: %v \n\n",
-			schedulerPath, armaPath, armaParam)
+			armaPath, armaParam)
 	}
+
 	pwcfg := procwatch.Cfg{
 		A3exe:        armaPath,
 		A3par:        armaParam,
@@ -138,9 +154,9 @@ func runWatcher(useSched, useWatch bool) (*procwatch.Watcher, error) {
 		UseWatcher:   useWatch,
 	}
 
-	watcher := procwatch.New(pwcfg)
+	watcher = procwatch.New(pwcfg)
 	watcher.Start()
-	return watcher, nil
+	return
 }
 
 func runRcon() (*rcon.Client, error) {
@@ -173,7 +189,7 @@ func runRcon() (*rcon.Client, error) {
 	return client, nil
 }
 
-func runFileLogger(stdout, stderr *io.ReadCloser, logFolder string) {
+func runFileLogger(stdout, stderr io.ReadCloser, logFolder string) {
 	t := time.Now()
 	logFileName := fmt.Sprintf("server_log_%v%d%v_%v-%v-%v.log", t.Year(), t.Month(), t.Day(), t.Hour(), t.Minute(), t.Second())
 	fmt.Println("Creating Server Logfile: ", logFileName)
@@ -185,12 +201,12 @@ func runFileLogger(stdout, stderr *io.ReadCloser, logFolder string) {
 
 	writer := bufio.NewWriter(logFile)
 	defer writer.Flush()
-	go io.Copy(writer, *stdout)
-	go io.Copy(writer, *stderr)
+	go io.Copy(writer, stdout)
+	go io.Copy(writer, stderr)
 }
 
-func runConsoleLogger(stdout, stderr *io.ReadCloser, console io.Writer) {
-	std := io.MultiReader(*stderr, *stdout)
+func runConsoleLogger(stdout, stderr io.ReadCloser, console io.Writer) {
+	std := io.MultiReader(stderr, stdout)
 	go io.Copy(console, std)
 }
 
