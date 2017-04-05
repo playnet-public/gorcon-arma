@@ -193,16 +193,32 @@ func runFileLogger(stdout, stderr io.ReadCloser, logFolder string) {
 	t := time.Now()
 	logFileName := fmt.Sprintf("server_log_%v%d%v_%v-%v-%v.log", t.Year(), t.Month(), t.Day(), t.Hour(), t.Minute(), t.Second())
 	fmt.Println("Creating Server Logfile: ", logFileName)
-	logFile, err := os.Create(path.Join(logFolder, logFileName))
+	_ = os.Mkdir(logFolder, 0775)
+	logFile, err := os.OpenFile(path.Join(logFolder, logFileName), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	//logFile, err := os.Create(path.Join(logFolder, logFileName))
 	if err != nil {
 		panic(err)
 	}
 	defer logFile.Close()
 
-	writer := bufio.NewWriter(logFile)
-	defer writer.Flush()
-	go io.Copy(writer, stdout)
-	go io.Copy(writer, stderr)
+	writer := io.MultiWriter(logFile)
+	close := make(chan int)
+	go func() {
+		_, err := io.Copy(writer, stdout)
+		if err != nil {
+			glog.Errorln(err)
+		}
+		close <- 1
+	}()
+	go func() {
+		_, err := io.Copy(writer, stderr)
+		if err != nil {
+			glog.Errorln(err)
+		}
+		close <- 1
+	}()
+	<-close
+	glog.Warningln("File Logger Closed which is unexpected")
 }
 
 func runConsoleLogger(stdout, stderr io.ReadCloser, console io.Writer) {
