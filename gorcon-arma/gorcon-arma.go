@@ -229,7 +229,9 @@ func runConsoleLogger(stdout, stderr io.ReadCloser, console io.Writer) {
 func streamConsole(consoleOut io.Reader) error {
 	consoleScanner := bufio.NewScanner(consoleOut)
 	for consoleScanner.Scan() {
-		fmt.Println(consoleScanner.Text())
+		t := time.Now()
+		timestamp := t.Format("2006-01-02 15:04:05")
+		fmt.Println(timestamp, consoleScanner.Text())
 	}
 	if err := consoleScanner.Err(); err != nil {
 		fmt.Fprintln(os.Stderr, "There was an error with the consoleScanner", err)
