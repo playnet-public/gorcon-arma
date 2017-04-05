@@ -1,0 +1,12 @@
+#!/bin/bash
+set -e
+
+# Get the version.
+version=${VERSION:-"dev"}
+# Write out the package.
+cat << EOF > version.go
+package main
+
+//go:generate bash ../script/get-version
+var version = "$version"
+EOF
