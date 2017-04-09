@@ -1,4 +1,4 @@
-package rcon
+package bercon
 
 import (
 	"sync/atomic"
@@ -10,8 +10,9 @@ import (
 func (c *Client) writerLoop(disc chan int, cmd chan transmission) {
 	defer func(disc chan int) { disc <- 1 }(disc)
 	for {
+		glog.V(10).Infoln("Looping in writerLoop")
 		if !c.looping {
-			glog.V(3).Infoln("WriterLoop ended by watcher. Exiting.")
+			glog.V(4).Infoln("WriterLoop ended by watcher. Exiting.")
 			return
 		}
 		if c.con == nil {
@@ -44,9 +45,11 @@ func (c *Client) writerLoop(disc chan int, cmd chan transmission) {
 					glog.Errorf("KeepAlive Packets are out of sync by %v", diff)
 					return
 				}
-				//c.lastPacket.Lock()
-				//c.lastPacket.Time = t
-				//c.lastPacket.Unlock()
+				// Experimental change to check if growing count is causing performance leak
+				if keepAliveCount > 20 {
+					atomic.SwapInt64(&c.keepAliveCount, 0)
+					atomic.SwapInt64(&c.pingbackCount, 0)
+				}
 			}
 		}
 	}
@@ -57,7 +60,7 @@ func (c *Client) writeCommand(trm transmission) error {
 	if c.con != nil {
 		c.con.SetWriteDeadline(time.Now().Add(time.Second * 2)) //TODO: Evaluate Deadlines
 		trm.packet = buildCmdPacket(trm.command, c.sequence.s)
-		glog.V(4).Infof("Sending Packet: %v - Command: %v - Sequence: %v", string(trm.packet), string(trm.command), c.sequence.s)
+		glog.V(3).Infof("Sending Packet: %v - Command: %v - Sequence: %v", string(trm.packet), string(trm.command), c.sequence.s)
 		_, err := c.con.Write(trm.packet)
 		if err != nil {
 			c.sequence.Unlock()

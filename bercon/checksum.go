@@ -1,4 +1,4 @@
-package rcon
+package bercon
 
 import (
 	"hash/crc32"
@@ -31,7 +31,7 @@ func verifyChecksum(data []byte, checksum uint32) bool {
 func verifyChecksumMatch(data []byte) (bool, error) {
 	checksum, err := getChecksum(data)
 	if err != nil {
-		glog.V(3).Infoln("verifyChecksumMatch: failed to get checksum") // TODO: Verify if required
+		glog.V(3).Infoln("verifyChecksumMatch: failed to get checksum")
 		return false, err
 	}
 	match := verifyChecksum(data[6:], checksum)

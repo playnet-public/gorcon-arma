@@ -1,4 +1,4 @@
-package rcon
+package bercon
 
 import "encoding/binary"
 

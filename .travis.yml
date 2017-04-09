@@ -1,12 +1,13 @@
 language: go
 go:
 - 1.8
-go_import_path: play-net.org/gorcon-arma
+go_import_path: github.com/playnet-public/gorcon-arma
 env:
   global:
   - REPO: $TRAVIS_REPO_SLUG
   - VERSION: $TRAVIS_TAG
 install:
+- source script/prepare
 - make prepare
 before_script:
 - make validate
@@ -29,5 +30,5 @@ deploy:
   file_glob: true
   overwrite: true
   on:
-    repo: PlayNet-Public/GoRcon-ArmA
+    repo: playnet-public/gorcon-arma
     tags: true

@@ -1,4 +1,4 @@
-package rcon
+package bercon
 
 import "errors"
 
@@ -21,6 +21,8 @@ var (
 	ErrInvalidChecksum = errors.New("Received invalid Packet Checksum")
 	//ErrInvalidSizeNoHeader .
 	ErrInvalidSizeNoHeader = errors.New("Invalid Packet Size, no Header found")
+	//ErrInvalidSizeNoSequence .
+	ErrInvalidSizeNoSequence = errors.New("Invalid Packet Size, no Sequence found")
 	//ErrInvalidHeaderSize .
 	ErrInvalidHeaderSize = errors.New("Invalid Packet Header Size")
 	//ErrInvalidHeaderSyntax .

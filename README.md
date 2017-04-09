@@ -1,59 +1,182 @@
 # GoRcon-ArmA
 The Go based Rcon solution for ArmA servers with server management features
 
+[![build status](https://git.play-net.org/playnet-public/gorcon-arma/badges/master/build.svg)](https://git.play-net.org/playnet-public/gorcon-arma/commits/master)
+[![Go Report Card](https://goreportcard.com/badge/github.com/playnet-public/gorcon-arma)](https://goreportcard.com/report/github.com/playnet-public/gorcon-arma)
+[![GitHub license](https://img.shields.io/badge/license-AGPL-blue.svg)](https://raw.githubusercontent.com/playnet-public/gorcon-arma/master/LICENSE)
+[![Join Discord at https://discord.gg/dWZkR6R](https://img.shields.io/badge/style-join-green.svg?style=flat&label=Discord)](https://discord.gg/dWZkR6R)
+[![Join the chat at https://playnet-ihtjamcsba.now.sh/](https://img.shields.io/badge/style-register-green.svg?style=social&label=Slack)](https://playnet-ihtjamcsba.now.sh/)
+
+
 ## Features
 
+Implemented:
+* Stable and Secure Rcon Connection
+* Allow Management of Rcon Servers
+	* Automated Server Restarts
+	* Sending timed Messages/Commands to Servers
+	* Server WatchDog
+	* Streaming in-game Chats and Events to Console
+	* Sending Server Log to Files (on Linux)
+  
 Planned: 
-* Stable and Secure Rcon Connection with easy to use Interfaces
+* Various Interfaces (API, CLI)
 * Allow Management of Rcon Servers
   * Executing Rcon Commands
-  * Automated Server Restarts
-  * Sending timed Messages to Players
   * Offline Whitelisting
-  * Providing in-game Chats to Interfaces
-  * Server WatchDog
+  * Provide in-game Chats to Interfaces
+	* Provide Server Performance and Host Information to Interfaces
 * Offering ease of use with exisiting Tools
-* In addition to that, it is planned to make this Project extendible with Plugins
+* In addition to that, it is planned to make this Project extensible with Plugins
 
 ## Usage
 
 The Tool consists of several parts.
-Main Part is the rcon library which connects to a given Server and sends commands/handles responses.
-The other part yet integrated is the scheduler. It allows to define time sets when commands should be executed.
+Main Part is the RCon library which connects to a given server and sends commands/handles responses.
+The other parts yet integrated are the Watcher and Scheduler.
 
-The Scheduler is able to either send a String over RCon (like: say -1 hello all) or send a restart command.
-For now both happens over rcon and therefor a working connection is required, but in the near future it is planned to also send the exit command to the process itself.
+### The Watcher
+The Watcher is responsible for starting and watching your game process. When using the Watcher you always have to let the Tool start your ArmA server otherwise the process won't be detected.
+When using the watcher as process manager, ending or killing gorcon-arma will also terminate your server process. This is a wanted feature as an automated restart of gorcon-arma would start a new server anyways which would then concur with the old one. On Windows the server is not being killed when gorcon-arma ends unexpected so take care of this when restarting it.
+
+### The Scheduler
+The Scheduler is able to either send a string over RCon (like: say -1 hello all) or send a restart command. If the Watcher is enabled, the restart will be done by sending a SIGTERM/SIGKILL to the process. If there is only RCon the restart will send a '#restartserver' command. Please note that without any kind of watcher your server might not come back up. When declaring a command in your config as restart event, the command string will be ignored.
+
+Note that the Scheduler has it's own schedule.json file containing the timetable (see below).
+
+
+### Getting Started
+
+#### Binary
+If you get the latest binary version from our [storage server](https://storage.play-net.org/minio/gorcon-arma/) you also get this README, the example config.json and an example schedule.json (HINT: You can select all the files you need and download them as a zip file). 
+
+#### Debian Package (WIP)
+If you want to use the pre-built debian package which also contains a systemd script for managing gorcon-arma (still being tested), you can get it by adding our bintray repository to your sources:
+```
+echo "deb https://dl.bintray.com/playnet/debian /" | sudo tee -a /etc/apt/sources.list
+```
+Then install via it's package name:
+```
+apt install gorcon-arma
+```
+
+#### Configuration
+Once you got all required files installed you are ready to change the config.json according to your needs.
+When entering the ArmA path make sure to use the right formating, even on Windows the path has to use forward slashes(/)! Do not escape spaces on Windows as Golang is handling all that for you.
+Also note that logToFile and logToConsole are not supported on Windows, so we recommend keeping them disabled.
+All further configuration options are described below. For both ```keepAliveTimer``` and ```keepAliveTolerance``` we recommend leaving them to the standards unless issues arise.
+
+#### Starting
+As gorcon-arma is a single binary starting it is fairly easy.
+If you used the binary files simply start the gorcon-arma binary of your choice ```./gorcon-arma_linux-amd64```
+If you used the Debian Package it is as simple as ```systemctl start gorcon-arma```
+
+#### Debugging
+If you encounter any issues with GoRcon-ArmA and need help, we recommend to first start with more output logging:
+``` ./gorcon-arma_linux-amd64 --logtostderr=true -v=2```
+
+The Verbosity Level is categorized in the following order:
+```
+1: Usual Output (can be always on)
+2: More Info
+3: Debug Communication
+4: Debug Internals
+5: Intense Debug
+10: Loop Debugging
+```
+
+To give us feedback on your problems or to tell us about requests/ideas feel free to post them in our Issues Section on [Gitlab](https://git.play-net.org/playnet-public/gorcon-arma/issues) or [Github](https://github.com/playnet-public/gorcon-arma/issues)
+We also happily invite you to join us on [Slack](https://playnet-ihtjamcsba.now.sh/) or [Discord](https://discord.gg/dWZkR6R)!
 
 ### Config Manual
 ```json
 {
     "arma": {
+        // Whether or not RCon is enabled
+        "enabled": true,
         // IP of the RCon Server
         "ip": "127.0.0.1",
         // RCon Port as set in beserver.cfg
         "port": "2301", 
         // RCon Password as set in beserver.cfg
         "password": "qwerty", 
-        // Path to the ArmA executable (linux or windows)
-        "path": "D:/Program Files (x86)/Steam/SteamApps/common/Arma 3/arma3server.exe", 
-        // single string of parameters for ArmA (watch formating for linux)
-        "param": "-name=goTest",
         // The amount of seconds to wait until a keepAlivePacket is send to RCon (BattlEye Specification is min. 45sec)
         "keepAliveTimer": 10, 
-        // The maximum tolerance between the sent keepAlives and the Servers response (higher means slower detection of disconnect, lower might cause unrequired reconnects)
-        "keepAliveTolerance": 4 
+        // The maximum tolerance between the sent keepAlives and the server response (higher means slower detection of disconnect, lower might cause unrequired reconnects)
+        "keepAliveTolerance": 4,
+        // Whether or not the Server Chat should be streamed to the console/stdout
+        "showChat": true,
+        // Whether or not the Server Events should be streamed to the console/stdout
+        "showEvents": true
     },
+
     "scheduler": {
         // Wheteher or not the scheduler is enabled
         "enabled": true,
         // Path to schedule.json (keep local if not required otherwise)
-        "path": "schedule.json",
-        // The Timezone Offset from GMT (Berlin: 1)
-        "timezone": 1 
+        "path": "schedule.json"
+    },
+
+    "watcher": {
+        // Wheteher or not the watcher is enabled
+        "enabled": true,
+        // Path to the ArmA executable (linux or windows)
+        "path": "D:/Program Files (x86)/Steam/SteamApps/common/Arma 3/arma3server.exe", 
+        // single string of parameters for ArmA (watch formating for linux)
+        "params": "-name=goTest",
+        // Enable or Disable stderr/stdout logging of game server (linux systems only)
+        "logToFile": true,
+        // Set the folder path in which logfiles are being created
+        "logFolder": "logs",
+        // Enables streaming of the server output(logs) to the console (linux systems only)
+        "logToConsole": false
     }
+}
+```
+
+### Schedule Manual
+The Scheduler implements a system like cronjobs. To learn more about it check out this [link](https://crontab.guru)
+```json
+{
+    "schedule": [
+        //One Schedule Event
+        {
+            // Command to be executed (if not restart)
+            "command": "say -1 Restart in 30 minutes",
+            // If the Server should be restarted (overrides command)
+            "restart": false,
+            // Day of the Week to run the Event (0-6, 0 = Sunnday, * = Every Day)
+            "day": "*",
+            // Hour of the Day to run the Event (0-23, * = Every Hour)
+            "hour": "*",
+            // Minute of the Hour to run the Event (0-60, * = Every Minute)
+            "minute": "11"
+        },
+        
+        // Example Event to restart the Server every day at 12:08am
+        {
+            "command": "",
+            "restart": true,
+            "day": "*",
+            "hour": "12",
+            "minute": "8"
+        },
+
+        // Example Event to restart the Server every hour at xx:30am/pm
+        {
+            "command": "",
+            "restart": true,
+            "day": "*",
+            "hour": "*",
+            "minute": "30"
+        }
+    ]
 }
 ```
 
 ## License
 This project is licensed under the included License (GNU GPLv3).
-Powered by https://play-net.org
+We also ask you to keep the projects name and links as they are, to direct possible contributors and users to the original sources.
+Do not host releases yourself. Always redirect users back to the official releases for downloads.
+
+Powered by https://play-net.org.

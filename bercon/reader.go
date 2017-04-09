@@ -1,4 +1,4 @@
-package rcon
+package bercon
 
 import (
 	"net"
@@ -11,8 +11,9 @@ import (
 func (c *Client) readerLoop(disc chan int) {
 	defer func(disc chan int) { disc <- 2 }(disc)
 	for {
+		glog.V(10).Infoln("Looping in readerLoop")
 		if !c.looping {
-			glog.V(3).Infoln("ReaderLoop ended by watcher. Exiting.")
+			glog.V(4).Infoln("ReaderLoop ended by watcher. Exiting.")
 			return
 		}
 		if c.con == nil {
@@ -28,7 +29,8 @@ func (c *Client) readerLoop(disc chan int) {
 			if herr := c.handlePacket(data); herr != nil {
 				glog.Errorln(err)
 			}
-			//go c.handlePacket(data) //TODO: Evaluate if parallel aproach is better
+			//TODO: Evaluate if parallel aproach is better
+			//go c.handlePacket(data)
 		}
 		if err != nil {
 			if err, _ := err.(net.Error); err.Timeout() {
@@ -52,8 +54,8 @@ func (c *Client) handlePacket(packet []byte) error {
 
 	// Handle Packet Types
 	if pType == packetType.ServerMessage {
-		glog.V(4).Infof("ServerMessage Packet: %v - Sequence: %v", string(data), seq)
-		c.handleServerMessage(append(data[3:], []byte("/n")...))
+		glog.V(3).Infof("ServerMessage Packet: %v - Sequence: %v", string(data), seq)
+		c.handleServerMessage(append(data[3:], []byte("\n")...))
 		if c.con != nil {
 			c.con.SetWriteDeadline(time.Now().Add(time.Millisecond * 100))
 			_, err := c.con.Write(buildMsgAckPacket(seq))
@@ -71,7 +73,7 @@ func (c *Client) handlePacket(packet []byte) error {
 	}
 
 	packetCount, currentPacket, isMultiPacket := checkMultiPacketResponse(data)
-	glog.V(4).Infof("Packet: %v - Sequence: %v - IsMulti: %v", string(data), seq, isMultiPacket)
+	glog.V(3).Infof("Packet: %v - Sequence: %v - IsMulti: %v", string(data), seq, isMultiPacket)
 	if !isMultiPacket {
 		c.handleResponse(seq, data[3:], true)
 		return nil
@@ -94,29 +96,33 @@ func (c *Client) handleServerMessage(data []byte) {
 		"(Unknown)",
 	}
 	for _, v := range ChatPatterns {
+		glog.V(10).Infoln("Looping in handleServerMessage")
 		if strings.HasPrefix(string(data), v) {
-			/*if v == "RCon admin" {
-				if strings.HasSuffix(string(data), "logged in\n") {
-					//TODO: Handle Login?
-					break
-				}
-			}*/
-			c.chatWriter.Lock()
 			if c.chatWriter.Writer != nil {
-				c.chatWriter.Write(data)
+				c.chatWriter.Lock()
+				_, err := c.chatWriter.Write(data)
+				if err != nil {
+					glog.Error(err)
+				}
+				c.chatWriter.Unlock()
 			}
-			c.chatWriter.Unlock()
 			return
 		}
 	}
-	c.eventWriter.Lock()
 	if c.eventWriter.Writer != nil {
+		c.eventWriter.Lock()
 		if strings.Contains(string(data), "logged in") {
-			glog.V(5).Infoln("Login Event: ", string(data))
-			c.eventWriter.Writer.Write(data)
+			glog.V(2).Infoln("Login Event: ", string(data))
+			_, err := c.eventWriter.Write(data)
+			if err != nil {
+				glog.Error(err)
+			}
 		} else {
-			c.eventWriter.Writer.Write(data)
+			_, err := c.eventWriter.Write(data)
+			if err != nil {
+				glog.Error(err)
+			}
 		}
+		c.eventWriter.Unlock()
 	}
-	c.eventWriter.Unlock()
 }

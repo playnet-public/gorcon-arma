@@ -5,20 +5,24 @@
 	"architecture": "amd64",
 	"maintainer": "PlayNet <contact@play-net.org>",
 	"description": "GoRcon-ArmA Tool",
-	"postinst": "src/play-net.org/gorcon-arma/deb/postinst",
-	"postrm": "src/play-net.org/gorcon-arma/deb/postrm",
-	"prerm": "src/play-net.org/gorcon-arma/deb/prerm",
+	"postinst": "src/github.com/playnet-public/gorcon-arma/deb/postinst",
+	"postrm": "src/github.com/playnet-public/gorcon-arma/deb/postrm",
+	"prerm": "src/github.com/playnet-public/gorcon-arma/deb/prerm",
 	"files": [
 		{
 			"source": "bin/gorcon-arma",
 			"target": "/opt/play-net/gorcon-arma/gorcon-arma"
 		},
 		{
-			"source": "src/play-net.org/gorcon-arma/config.json",
+			"source": "src/github.com/playnet-public/gorcon-arma/config.json",
 			"target": "/opt/play-net/gorcon-arma/bin/config.json"
 		},
 		{
-			"source": "src/play-net.org/gorcon-arma/deb/gorcon-arma.service",
+			"source": "src/github.com/playnet-public/gorcon-arma/schedule.json",
+			"target": "/opt/play-net/gorcon-arma/bin/schedule.json"
+		},
+		{
+			"source": "src/github.com/playnet-public/gorcon-arma/deb/gorcon-arma.service",
 			"target": "/etc/systemd/system/gorcon-arma.service"
 		}
 	]

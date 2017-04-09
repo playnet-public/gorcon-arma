@@ -1,4 +1,4 @@
-package rcon
+package bercon
 
 import (
 	"encoding/binary"
@@ -27,7 +27,7 @@ func Test_stripHeader(t *testing.T) {
 	packet := buildPacket([]byte(cmd), packetType.Command)
 	result, err := stripHeader(packet)
 	if err != nil {
-		t.Fatal("Error on StripHeader:", err.Error())
+		t.Fatal("on StripHeader:", err.Error())
 	}
 	if string(result[2:]) != cmd {
 		t.Fatal("Expected:", cmd, "Got:", string(result))

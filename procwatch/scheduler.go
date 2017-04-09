@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io/ioutil"
 
+	"syscall"
+
 	"github.com/golang/glog"
 )
 
@@ -44,6 +46,7 @@ func parseConfig(content []byte) (*Schedule, error) {
 
 func (w *Watcher) buildJobs() error {
 	scheduleArr := w.schedule.Schedule
+	glog.V(1).Infoln("Scheduling Commands: ")
 	for index := 0; index < len(scheduleArr); index++ {
 		scheduleEntry := scheduleArr[index]
 		command := scheduleEntry.Command
@@ -51,17 +54,33 @@ func (w *Watcher) buildJobs() error {
 		day := scheduleEntry.Day
 		hour := scheduleEntry.Hour
 		minute := scheduleEntry.Minute
-		glog.Info(fmt.Sprintf("%s %s * * %s", minute, hour, day))
+		glog.V(1).Infof("Adding Event at %s %s * * %s", minute, hour, day)
 		if restart {
 			err := w.cron.AddFunc(fmt.Sprintf("0 %s %s * * %s", minute, hour, day), func() {
-				glog.Infoln("Restart Event Placeholder")
+				if w.useWatcher {
+					glog.V(2).Infoln("Sending Termination Signal to Process")
+					err := w.cmd.Process.Signal(syscall.SIGTERM)
+					if err != nil {
+						if err.Error() != "not supported by windows" {
+							glog.Error(err)
+						}
+						err := w.cmd.Process.Signal(syscall.SIGKILL)
+						if err != nil {
+							glog.Error(err)
+						}
+					}
+				} else {
+					glog.V(2).Infoln("Sending Restart Command to Channel")
+					w.cmdChan <- "#restartserver"
+				}
 			})
 			if err != nil {
 				return err
 			}
 		} else {
 			err := w.cron.AddFunc(fmt.Sprintf("0 %s %s * * %s", minute, hour, day), func() {
-				glog.Infoln("Command Placeholder: ", command)
+				glog.V(2).Infoln("Sending Command to Channel: ", command)
+				w.cmdChan <- command
 			})
 			if err != nil {
 				return err

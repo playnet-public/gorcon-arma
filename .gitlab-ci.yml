@@ -1,0 +1,62 @@
+image: golang:1.8
+
+stages:
+- test
+- build
+- push
+
+variables:
+  VERSION: $CI_BUILD_TAG
+
+before_script:
+- echo $PWD
+- source script/prepare
+- make prepare
+- make validate
+- make test || true
+build:
+  stage: build
+  script:
+  - make binary
+  - make crossbinary
+  - cp config.json dist/
+  - cp schedule.json dist/
+  - cp README.md dist/
+  - tar cfz gorcon-arma-${VERSION}.src.tar.gz --exclude-vcs dist
+  artifacts:
+    paths:
+    - dist/
+
+package:
+  stage: build
+  script:
+  - make install
+  - VERSION=$VERSION make package
+  - cp /go/gorcon-arma_${VERSION}.deb .
+  only:
+  - tags
+  environment:
+    name: storage
+    url: https://storage.play-net.org/minio/gorcon-arma
+  artifacts:
+    paths:
+    - gorcon-arma_${VERSION}.deb
+
+push:
+  stage: push
+  image: python:latest
+  before_script:
+  - pip install awscli
+  - cp gorcon-arma_${VERSION}.deb dist/
+  script:
+  - aws --endpoint-url https://storage.play-net.org s3 cp ./dist/ s3://gorcon-arma/artifacts/${VERSION} --recursive --include "*"
+  - curl -T gorcon-arma_${VERSION}.deb -ufinch:$BINTRAY_API https://api.bintray.com/content/playnet/debian/GoRcon-ArmA/$VERSION/gorcon-arma-${VERSION}.deb
+  only:
+  - tags
+  when: on_success
+  environment:
+    name: storage
+    url: https://storage.play-net.org/minio/gorcon-arma
+  artifacts:
+    paths:
+    - dist/

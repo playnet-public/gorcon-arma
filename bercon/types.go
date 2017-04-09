@@ -1,4 +1,4 @@
-package rcon
+package bercon
 
 import (
 	"io"
@@ -44,18 +44,19 @@ type Client struct {
 	keepAliveTolerance int64
 	reconnectTimeout   int
 
+	init       bool
 	con        *net.UDPConn
 	readBuffer []byte
 	cmdChan    chan transmission
 	looping    bool
 
 	sequence struct {
-		sync.Mutex
+		sync.RWMutex
 		s byte
 	}
 
 	cmdMap  map[byte]transmission
-	cmdLock sync.Mutex
+	cmdLock sync.RWMutex
 
 	keepAliveCount int64
 	pingbackCount  int64
@@ -100,7 +101,9 @@ func responseType(data []byte) (byte, error) {
 	return data[7], nil
 }
 
-func getSequence(data []byte) byte {
-	//TODO: Evaluate len check
-	return data[8]
+func getSequence(data []byte) (byte, error) {
+	if len(data) < 9 {
+		return 0, ErrInvalidSizeNoSequence
+	}
+	return data[8], nil
 }
