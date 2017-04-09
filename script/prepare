@@ -1,5 +1,5 @@
 # Bootstrap golang runner
-GODIR=$GOPATH/src/git.play-net.org/playnet-public/gorcon-arma
+GODIR=$GOPATH/src/github.com/playnet-public/gorcon-arma
 mkdir -p "$(dirname "$GODIR")"
 ln -sfv "$(pwd -P)" "$GODIR"
 cd "$GODIR"

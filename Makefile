@@ -52,7 +52,6 @@ prepare:
 	go get -u github.com/golang/lint/golint
 	go get -u github.com/kisielk/errcheck
 	go get -u github.com/bborbe/debian_utils/bin/create_debian_package
-	go get -u git.play-net.org/playnet-public/bercon
 update:
 	glide up
 clean:
@@ -62,6 +61,6 @@ package:
 	-logtostderr \
 	-v=2 \
 	-version=$(VERSION) \
-	-config=src/git.play-net.org/playnet-public/gorcon-arma/deb/create_deb_config.json
+	-config=src/github.com/playnet-public/gorcon-arma/deb/create_deb_config.json
 
 
