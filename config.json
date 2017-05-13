@@ -16,7 +16,10 @@
     "watcher": {
         "enabled": true,
         "path": "D:/Program Files (x86)/Steam/SteamApps/common/Arma 3/arma3server.exe",
-        "params": "-name=goTest",
+        "params": [
+            "-name=goTest",
+            "-port-2303"
+        ],
         "logToFile": true,
         "logFolder": "logs",
         "logToConsole": false

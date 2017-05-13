@@ -76,104 +76,121 @@ If you encounter any issues with GoRcon-ArmA and need help, we recommend to firs
 ``` ./gorcon-arma_linux-amd64 --logtostderr=true -v=2```
 
 The Verbosity Level is categorized in the following order:
-```
-1: Usual Output (can be always on)
-2: More Info
-3: Debug Communication
-4: Debug Internals
-5: Intense Debug
-10: Loop Debugging
-```
+
+- ```1``` Usual Output (can be always on)
+- ```2``` More Info
+- ```3``` Debug Communication
+- ```4``` Debug Internals
+- ```5``` Intense Debug
+- ```10``` Loop Debugging
 
 To give us feedback on your problems or to tell us about requests/ideas feel free to post them in our Issues Section on [Gitlab](https://git.play-net.org/playnet-public/gorcon-arma/issues) or [Github](https://github.com/playnet-public/gorcon-arma/issues)
 We also happily invite you to join us on [Slack](https://playnet-ihtjamcsba.now.sh/) or [Discord](https://discord.gg/dWZkR6R)!
 
 ### Config Manual
+
 ```json
 {
     "arma": {
-        // Whether or not RCon is enabled
         "enabled": true,
-        // IP of the RCon Server
         "ip": "127.0.0.1",
-        // RCon Port as set in beserver.cfg
         "port": "2301", 
-        // RCon Password as set in beserver.cfg
         "password": "qwerty", 
-        // The amount of seconds to wait until a keepAlivePacket is send to RCon (BattlEye Specification is min. 45sec)
         "keepAliveTimer": 10, 
-        // The maximum tolerance between the sent keepAlives and the server response (higher means slower detection of disconnect, lower might cause unrequired reconnects)
         "keepAliveTolerance": 4,
-        // Whether or not the Server Chat should be streamed to the console/stdout
         "showChat": true,
-        // Whether or not the Server Events should be streamed to the console/stdout
         "showEvents": true
     },
 
     "scheduler": {
-        // Wheteher or not the scheduler is enabled
         "enabled": true,
-        // Path to schedule.json (keep local if not required otherwise)
         "path": "schedule.json"
     },
 
     "watcher": {
-        // Wheteher or not the watcher is enabled
         "enabled": true,
-        // Path to the ArmA executable (linux or windows)
         "path": "D:/Program Files (x86)/Steam/SteamApps/common/Arma 3/arma3server.exe", 
-        // single string of parameters for ArmA (watch formating for linux)
-        "params": "-name=goTest",
-        // Enable or Disable stderr/stdout logging of game server (linux systems only)
+        "params": [
+            "-name=goTest",
+            "-port-2303"
+        ],
         "logToFile": true,
-        // Set the folder path in which logfiles are being created
         "logFolder": "logs",
-        // Enables streaming of the server output(logs) to the console (linux systems only)
         "logToConsole": false
     }
 }
 ```
 
+**Explanation for ```arma``` section**
+- ```enabled``` Whether or not RCon is enabled
+- ```ip``` IP of the RCon Server
+- ```port``` RCon Port as set in _beserver.cfg_
+- ```password``` RCon Password as set in _beserver.cfg_
+- ```keepAliveTimer``` The amount of seconds to wait until a keepAlivePacket is send to RCon (BattlEye Specification is min. 45sec)
+- ```keepAliveTolerance``` The maximum tolerance between the sent keepAlives and the server response (higher means slower detection of disconnect, lower might cause unrequired reconnects)
+- ```showChat``` Whether or not the Server Chat should be streamed to the console/stdout
+- ```showEvents```Whether or not the Server Events should be streamed to the console/stdout
+
+**Explanation for ```scheduler``` section**
+- ```enabled``` Wheteher or not the scheduler is enabled
+- ```path``` Path to schedule.json (keep local if not required otherwise)
+
+**Explanation for ```watcher``` section**
+- ```enabled``` Wheteher or not the watcher is enabled
+- ```path``` Path to the ArmA executable (linux or windows)
+- ```params``` Array of parameters for ArmA (watch formating for linux)
+- ```logToFile``` Enable or Disable stderr/stdout logging of game server (linux systems only)
+- ```logFolder``` Set the folder path in which logfiles are being created
+- ```logToConsole``` Enables streaming of the server output(logs) to the console (linux systems only)
+
 ### Schedule Manual
 The Scheduler implements a system like cronjobs. To learn more about it check out this [link](https://crontab.guru)
+
 ```json
 {
     "schedule": [
-        //One Schedule Event
         {
-            // Command to be executed (if not restart)
-            "command": "say -1 Restart in 30 minutes",
-            // If the Server should be restarted (overrides command)
+            "command": "say -1 Message every 5 minutes",
             "restart": false,
-            // Day of the Week to run the Event (0-6, 0 = Sunnday, * = Every Day)
-            "day": "*",
-            // Hour of the Day to run the Event (0-23, * = Every Hour)
-            "hour": "*",
-            // Minute of the Hour to run the Event (0-60, * = Every Minute)
-            "minute": "11"
-        },
-        
-        // Example Event to restart the Server every day at 12:08am
-        {
-            "command": "",
-            "restart": true,
-            "day": "*",
-            "hour": "12",
-            "minute": "8"
-        },
-
-        // Example Event to restart the Server every hour at xx:30am/pm
-        {
-            "command": "",
-            "restart": true,
             "day": "*",
             "hour": "*",
-            "minute": "30"
+            "minute": "*/5"
         }
     ]
 }
 ```
 
+- ```command``` Command to be executed (if not restart)
+- ```restart``` If the Server should be restarted (overrides command)
+- ```day``` Day of the Week to run the Event (0-6, 0 = Sunnday, * = Every Day)
+- ```hour``` Hour of the Day to run the Event (0-23, * = Every Hour)
+- ```minute``` Minute of the Hour to run the Event (0-60, * = Every Minute)
+
+### Scheduler Examples
+
+Example Event to restart the Server every hour at xx:30am/pm
+
+```json
+{
+    "command": "",
+    "restart": true,
+    "day": "*",
+    "hour": "*",
+    "minute": "30"
+}
+```
+
+Example Event to restart the Server every day at 12:08am
+
+```json
+{
+    "command": "",
+    "restart": true,
+    "day": "*",
+    "hour": "12",
+    "minute": "8"
+}
+```
 ## License
 This project is licensed under the included License (GNU GPLv3).
 We also ask you to keep the projects name and links as they are, to direct possible contributors and users to the original sources.

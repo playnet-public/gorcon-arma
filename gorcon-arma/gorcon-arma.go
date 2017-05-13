@@ -119,7 +119,7 @@ func do() error {
 
 func runWatcher(useSched, useWatch bool) (watcher *procwatch.Watcher, err error) {
 	var armaPath string
-	var armaParam string
+	var armaParam []string
 	var schedulerEntity *procwatch.Schedule
 
 	if useSched {
@@ -138,7 +138,7 @@ func runWatcher(useSched, useWatch bool) (watcher *procwatch.Watcher, err error)
 
 	if useWatch {
 		armaPath = cfg.GetString("watcher.path")
-		armaParam = cfg.GetString("watcher.params")
+		armaParam = cfg.GetStringSlice("watcher.params")
 		fmt.Println("\nWatcher is enabled")
 		fmt.Printf("\nWatcher Config: \n"+
 			"Path to ArmA Executable: %v \n"+

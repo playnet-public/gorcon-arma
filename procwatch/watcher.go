@@ -14,7 +14,7 @@ import (
 //Cfg contains all data required by Procwatch
 type Cfg struct {
 	A3exe        string
-	A3par        string
+	A3par        []string
 	Schedule     Schedule
 	UseScheduler bool
 	UseWatcher   bool
@@ -34,7 +34,7 @@ func (c Cfg) GetConfig() Cfg {
 //Watcher is the the Object Handling the Procwatch
 type Watcher struct {
 	a3exe        string
-	a3par        string
+	a3par        []string
 	pid          uint32
 	waitGroup    sync.WaitGroup
 	cmd          *exec.Cmd
@@ -67,7 +67,7 @@ func (w *Watcher) Start() {
 	var err error
 	if w.useWatcher {
 		glog.V(2).Infoln("Starting Watcher")
-		w.cmd = exec.Command(w.a3exe, w.a3par)
+		w.cmd = exec.Command(w.a3exe, w.a3par...)
 		w.cmd.Dir = path.Dir(w.a3exe)
 		glog.V(2).Infof("Executing ArmA Executable: %v", w.cmd)
 		w.stdout, err = w.cmd.StdoutPipe()
