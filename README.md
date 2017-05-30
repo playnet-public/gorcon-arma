@@ -132,11 +132,11 @@ We also happily invite you to join us on [Slack](https://playnet-ihtjamcsba.now.
 - ```showEvents```Whether or not the Server Events should be streamed to the console/stdout
 
 **Explanation for ```scheduler``` section**
-- ```enabled``` Wheteher or not the scheduler is enabled
+- ```enabled``` Whether or not the scheduler is enabled
 - ```path``` Path to schedule.json (keep local if not required otherwise)
 
 **Explanation for ```watcher``` section**
-- ```enabled``` Wheteher or not the watcher is enabled
+- ```enabled``` Whether or not the watcher is enabled
 - ```path``` Path to the ArmA executable (linux or windows)
 - ```params``` Array of parameters for ArmA (watch formating for linux)
 - ```logToFile``` Enable or Disable stderr/stdout logging of game server (linux systems only)
