@@ -11,19 +11,22 @@ import (
 	"runtime"
 	"time"
 
-	rcon "github.com/playnet-public/gorcon-arma/bercon"
+	bercon "github.com/playnet-public/gorcon-arma/bercon/client"
 	"github.com/playnet-public/gorcon-arma/procwatch"
+	"github.com/playnet-public/gorcon-arma/rcon"
 
 	"github.com/golang/glog"
 	"github.com/spf13/viper"
 )
 
 const (
-	parameterMaxprocs = "maxprocs"
+	parameterMaxprocs   = "maxprocs"
+	parameterConfigPath = "configPath"
 )
 
 var (
-	maxprocsPtr = flag.Int(parameterMaxprocs, runtime.NumCPU(), "max go procs")
+	maxprocsPtr   = flag.Int(parameterMaxprocs, runtime.NumCPU(), "max go procs")
+	configPathPtr = flag.String(parameterConfigPath, ".", "config parent folder")
 )
 
 var cfg *viper.Viper
@@ -63,7 +66,7 @@ func do() error {
 
 	var err error
 	var watcher *procwatch.Watcher
-	var client *rcon.Client
+	var client *bercon.Client
 	var cmdChan chan string
 	var stdout io.ReadCloser
 	var stderr io.ReadCloser
@@ -159,31 +162,46 @@ func runWatcher(useSched, useWatch bool) (watcher *procwatch.Watcher, err error)
 	return
 }
 
-func runRcon() (*rcon.Client, error) {
-	armaIP := cfg.GetString("arma.ip")
-	armaPort := cfg.GetString("arma.port")
-	armaPassword := cfg.GetString("arma.password")
-	armaKeepAliveTimer := cfg.GetInt("arma.keepAliveTimer")
-	armaKeepAliveTolerance := cfg.GetInt64("arma.keepAliveTolerance")
-	udpadr, err := net.ResolveUDPAddr("udp", armaIP+":"+armaPort)
+func runRcon() (*bercon.Client, error) {
+	beIP := cfg.GetString("arma.ip")
+	bePort := cfg.GetString("arma.port")
+	bePassword := cfg.GetString("arma.password")
+	beKeepAliveTimer := cfg.GetInt("arma.keepAliveTimer")
+	beKeepAliveTolerance := cfg.GetInt64("arma.keepAliveTolerance")
+
+	/*
+		beCl := bercon.New(beCon)
+
+		rc := rcon.New()
+	*/
+	beCred := bercon.Credentials{
+		Username: "",
+		Password: bePassword,
+	}
+
+	beConAddr, err := net.ResolveUDPAddr("udp", beIP+":"+bePort)
 	if err != nil {
-		glog.Errorln("Could not convert ArmA IP and Port")
 		return nil, err
+	}
+
+	beCon := bercon.Connection{
+		Addr:               beConAddr,
+		KeepAliveTimer:     beKeepAliveTimer,
+		KeepAliveTolerance: beKeepAliveTolerance,
 	}
 	fmt.Printf("\nRCon Config: \n"+
 		"ArmA Server Address: %v \n"+
 		"ArmA Server Port: %v \n"+
 		"KeepAliveTimer: %v \n"+
 		"KeepAliveTolerance: %v \n\n",
-		armaIP, armaPort, armaKeepAliveTimer, armaKeepAliveTolerance)
-	becfg := rcon.Config{
-		Addr:               udpadr,
-		Password:           armaPassword,
-		KeepAliveTimer:     armaKeepAliveTimer,
-		KeepAliveTolerance: armaKeepAliveTolerance,
-	}
+		beIP, bePort, beKeepAliveTimer, beKeepAliveTolerance)
 
-	client := rcon.New(becfg)
+	beCl := bercon.New(beCon, beCred)
+	rc := rcon.NewClient(
+		beCl.Connect,
+		beCl.Disconnect,
+	)
+
 	fmt.Println("Establishing Connection to Server")
 	client.WatcherLoop()
 	return client, nil
@@ -240,7 +258,7 @@ func streamConsole(consoleOut io.Reader) error {
 	return nil
 }
 
-func pipeCommands(cmdChan chan string, c *rcon.Client, w io.WriteCloser) {
+func pipeCommands(cmdChan chan string, c *bercon.Client, w io.WriteCloser) {
 	for {
 		glog.V(10).Infoln("Looping pipeCommands")
 		cmd := <-cmdChan
@@ -253,7 +271,7 @@ func pipeCommands(cmdChan chan string, c *rcon.Client, w io.WriteCloser) {
 func getConfig() *viper.Viper {
 	cfg := viper.New()
 	cfg.SetConfigName("config")
-	cfg.AddConfigPath(".")
+	cfg.AddConfigPath(*configPathPtr)
 
 	glog.V(1).Infof("Reading Config")
 
