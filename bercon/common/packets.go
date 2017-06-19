@@ -1,5 +1,6 @@
 package common
 
+//BuildPacket creates a new packet with data and type
 func BuildPacket(data []byte, PacketType byte) []byte {
 	data = append([]byte{0xFF, PacketType}, data...)
 	checksum := makeChecksum(data)
@@ -8,22 +9,27 @@ func BuildPacket(data []byte, PacketType byte) []byte {
 	return append(header, data...)
 }
 
+//BuildLoginPacket creates a login packet with password
 func BuildLoginPacket(pw string) []byte {
 	return BuildPacket([]byte(pw), PacketType.Login)
 }
 
+//BuildCmdPacket creates a packet with cmd and seq
 func BuildCmdPacket(cmd []byte, seq uint8) []byte {
 	return BuildPacket(append([]byte{seq}, cmd...), PacketType.Command)
 }
 
+//BuildKeepAlivePacket creates a keepAlivePacket with seq
 func BuildKeepAlivePacket(seq uint8) []byte {
 	return BuildPacket([]byte{seq}, PacketType.Command)
 }
 
+//BuildMsgAckPacket creates a server message packet with seq
 func BuildMsgAckPacket(seq uint8) []byte {
 	return BuildPacket([]byte{seq}, PacketType.ServerMessage)
 }
 
+//VerifyPacket checks a package and its contents for errors or tampering
 func VerifyPacket(packet []byte) (seq byte, data []byte, pckType byte, err error) {
 	checksum, err := getChecksum(packet)
 	if err != nil {
@@ -46,6 +52,7 @@ func VerifyPacket(packet []byte) (seq byte, data []byte, pckType byte, err error
 	return
 }
 
+//VerifyLogin checks the login packet
 func VerifyLogin(packet []byte) (byte, error) {
 	if len(packet) != 9 {
 		return 0, ErrInvalidLoginPacket
@@ -57,6 +64,7 @@ func VerifyLogin(packet []byte) (byte, error) {
 	return packet[8], nil
 }
 
+//CheckMultiPacketResponse checks whether a packet is part of a multiPacketResponse
 func CheckMultiPacketResponse(data []byte) (byte, byte, bool) {
 	if len(data) < 3 {
 		return 0, 0, false
