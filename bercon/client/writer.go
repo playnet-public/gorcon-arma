@@ -1,10 +1,11 @@
-package bercon
+package client
 
 import (
 	"sync/atomic"
 	"time"
 
 	"github.com/golang/glog"
+	"github.com/playnet-public/gorcon-arma/bercon/common"
 )
 
 func (c *Client) writerLoop(disc chan int, cmd chan transmission) {
@@ -16,11 +17,11 @@ func (c *Client) writerLoop(disc chan int, cmd chan transmission) {
 			return
 		}
 		if c.con == nil {
-			glog.Errorln(ErrConnectionNil)
+			glog.Errorln(common.ErrConnectionNil)
 			return
 		}
 
-		timeout := time.After(time.Second * time.Duration(c.keepAliveTimer))
+		timeout := time.After(time.Second * time.Duration(c.cfg.KeepAliveTimer))
 
 		select {
 		case trm := <-cmd:
@@ -34,14 +35,14 @@ func (c *Client) writerLoop(disc chan int, cmd chan transmission) {
 			if c.con != nil {
 				glog.V(3).Infof("Sending Keepalive")
 				c.con.SetWriteDeadline(time.Now().Add(time.Millisecond * 100))
-				_, err := c.con.Write(buildKeepAlivePacket(c.sequence.s))
+				_, err := c.con.Write(common.BuildKeepAlivePacket(c.sequence.s))
 				if err != nil {
 					glog.Errorln(err)
 					return
 				}
 				keepAliveCount := atomic.AddInt64(&c.keepAliveCount, 1)
 				pinbackCount := atomic.LoadInt64(&c.pingbackCount)
-				if diff := keepAliveCount - pinbackCount; diff > c.keepAliveTolerance || diff < c.keepAliveTolerance*-1 {
+				if diff := keepAliveCount - pinbackCount; diff > c.cfg.KeepAliveTolerance || diff < c.cfg.KeepAliveTolerance*-1 {
 					glog.Errorf("KeepAlive Packets are out of sync by %v", diff)
 					return
 				}
@@ -59,7 +60,7 @@ func (c *Client) writeCommand(trm transmission) error {
 	c.sequence.Lock()
 	if c.con != nil {
 		c.con.SetWriteDeadline(time.Now().Add(time.Second * 2)) //TODO: Evaluate Deadlines
-		trm.packet = buildCmdPacket(trm.command, c.sequence.s)
+		trm.packet = common.BuildCmdPacket(trm.command, c.sequence.s)
 		glog.V(3).Infof("Sending Packet: %v - Command: %v - Sequence: %v", string(trm.packet), string(trm.command), c.sequence.s)
 		_, err := c.con.Write(trm.packet)
 		if err != nil {

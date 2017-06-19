@@ -1,4 +1,4 @@
-package bercon
+package common
 
 import (
 	"hash/crc32"

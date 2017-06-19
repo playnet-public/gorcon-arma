@@ -1,4 +1,4 @@
-package bercon
+package client
 
 import (
 	"net"
@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/golang/glog"
+	"github.com/playnet-public/gorcon-arma/bercon/common"
 )
 
 func (c *Client) readerLoop(disc chan int) {
@@ -17,7 +18,7 @@ func (c *Client) readerLoop(disc chan int) {
 			return
 		}
 		if c.con == nil {
-			glog.Errorln(ErrConnectionNil)
+			glog.Errorln(common.ErrConnectionNil)
 			return
 		}
 
@@ -46,19 +47,19 @@ func (c *Client) readerLoop(disc chan int) {
 }
 
 func (c *Client) handlePacket(packet []byte) error {
-	seq, data, pType, err := verifyPacket(packet)
+	seq, data, pType, err := common.VerifyPacket(packet)
 	if err != nil {
 		glog.Errorln(err)
 		return err
 	}
 
 	// Handle Packet Types
-	if pType == packetType.ServerMessage {
+	if pType == common.PacketType.ServerMessage {
 		glog.V(3).Infof("ServerMessage Packet: %v - Sequence: %v", string(data), seq)
 		c.handleServerMessage(append(data[3:], []byte("\n")...))
 		if c.con != nil {
 			c.con.SetWriteDeadline(time.Now().Add(time.Millisecond * 100))
-			_, err := c.con.Write(buildMsgAckPacket(seq))
+			_, err := c.con.Write(common.BuildMsgAckPacket(seq))
 			if err != nil {
 				glog.Error(err)
 				return err
@@ -67,12 +68,12 @@ func (c *Client) handlePacket(packet []byte) error {
 		return nil
 	}
 
-	if pType != packetType.Command && pType != packetType.MultiCommand {
+	if pType != common.PacketType.Command && pType != common.PacketType.MultiCommand {
 		glog.V(2).Infof("Packet: %v - PacketType: %v", string(packet), pType)
-		return ErrUnknownPacketType
+		return common.ErrUnknownPacketType
 	}
 
-	packetCount, currentPacket, isMultiPacket := checkMultiPacketResponse(data)
+	packetCount, currentPacket, isMultiPacket := common.CheckMultiPacketResponse(data)
 	glog.V(3).Infof("Packet: %v - Sequence: %v - IsMulti: %v", string(data), seq, isMultiPacket)
 	if !isMultiPacket {
 		c.handleResponse(seq, data[3:], true)

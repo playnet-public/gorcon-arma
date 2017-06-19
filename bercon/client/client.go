@@ -1,4 +1,4 @@
-package bercon
+package client
 
 import (
 	"fmt"
@@ -8,30 +8,28 @@ import (
 	"time"
 
 	"github.com/golang/glog"
+	"github.com/playnet-public/gorcon-arma/bercon/common"
 )
 
 //New creates a Client with given Config
-func New(bec BeCfg) *Client {
-	cfg := bec.GetConfig()
-	if cfg.KeepAliveTimer == 0 {
-		cfg.KeepAliveTimer = 10 //TODO: Evaluate default value
+func New(con Connection, cred Credentials) *Client {
+	if con.KeepAliveTimer == 0 {
+		con.KeepAliveTimer = 10 //TODO: Evaluate default value
 	}
 
 	return &Client{
-		addr:               cfg.Addr,
-		password:           cfg.Password,
-		keepAliveTimer:     cfg.KeepAliveTimer,
-		keepAliveTolerance: cfg.KeepAliveTolerance,
-		readBuffer:         make([]byte, 4096),
-		reconnectTimeout:   25,
-		cmdChan:            make(chan transmission),
-		cmdMap:             make(map[byte]transmission),
+		cfg:        con,
+		cred:       cred,
+		readBuffer: make([]byte, 4096),
+		cmdChan:    make(chan transmission),
+		cmdMap:     make(map[byte]transmission),
 	}
 }
 
 //Connect opens a new Connection to the Server
-func (c *Client) Connect() (err error) {
-	c.con, err = net.DialUDP("udp", nil, c.addr)
+func (c *Client) Connect() error {
+	var err error
+	c.con, err = net.DialUDP("udp", nil, c.cfg.Addr)
 	if err != nil {
 		c.con = nil
 		return err
@@ -42,26 +40,26 @@ func (c *Client) Connect() (err error) {
 
 	glog.V(2).Infoln("Sending Login Information")
 	c.con.SetReadDeadline(time.Now().Add(time.Second * 2))
-	c.con.Write(buildLoginPacket(c.password))
+	c.con.Write(common.BuildLoginPacket(c.cred.Password))
 	n, err := c.con.Read(buffer)
 	if err, ok := err.(net.Error); ok && err.Timeout() {
 		c.con.Close()
-		return ErrTimeout
+		return common.ErrTimeout
 	}
 	if err != nil {
 		c.con.Close()
 		return err
 	}
 
-	response, err := verifyLogin(buffer[:n])
+	response, err := common.VerifyLogin(buffer[:n])
 	if err != nil {
 		c.con.Close()
 		return err
 	}
-	if response == packetResponse.LoginFail {
+	if response == common.PacketResponse.LoginFail {
 		glog.Errorln("Non Login Packet Received:", response)
 		c.con.Close()
-		return ErrInvalidLogin
+		return common.ErrInvalidLogin
 	}
 	fmt.Println("Login successful")
 	if !c.looping {
