@@ -5,21 +5,9 @@ import (
 	"net"
 	"sync"
 	"time"
+
+	"github.com/playnet-public/gorcon-arma/rcon"
 )
-
-//Credentials implements a common struct for storing auth information
-type Credentials struct {
-	Username string
-	Password string
-}
-
-//Connection implements a common struct for storing connection information
-type Connection struct {
-	Addr               *net.UDPAddr
-	KeepAliveTimer     int
-	KeepAliveTolerance int64
-	ReconnectTimeout   int
-}
 
 type transmission struct {
 	packet      []byte
@@ -32,8 +20,8 @@ type transmission struct {
 
 //Client is the the Object Handling the Connection
 type Client struct {
-	cfg  Connection
-	cred Credentials
+	cfg  rcon.Connection
+	cred rcon.Credentials
 	con  *net.UDPConn
 
 	init       bool

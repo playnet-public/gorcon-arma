@@ -9,10 +9,11 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/playnet-public/gorcon-arma/bercon/common"
+	"github.com/playnet-public/gorcon-arma/rcon"
 )
 
 //New creates a Client with given Config
-func New(con Connection, cred Credentials) *Client {
+func New(con rcon.Connection, cred rcon.Credentials) *Client {
 	if con.KeepAliveTimer == 0 {
 		con.KeepAliveTimer = 10 //TODO: Evaluate default value
 	}
@@ -154,9 +155,10 @@ func (c *Client) SetEventWriter(w io.Writer) {
 	c.eventWriter.Unlock()
 }
 
-//RunCommand adds given cmd to command queue
-func (c *Client) RunCommand(cmd string, w io.WriteCloser) {
-	c.cmdChan <- transmission{command: []byte(cmd), writeCloser: w}
+//Exec adds given cmd to command queue
+func (c *Client) Exec(cmd []byte, resp io.WriteCloser) error {
+	c.cmdChan <- transmission{command: cmd, writeCloser: resp}
+	return nil
 }
 
 func (c *Client) handleResponse(seq byte, response []byte, last bool) {

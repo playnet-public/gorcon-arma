@@ -66,8 +66,8 @@ func do() error {
 
 	var err error
 	var watcher *procwatch.Watcher
-	var client *bercon.Client
-	var cmdChan chan string
+	var client *rcon.Client
+	//var cmdChan chan string
 	var stdout io.ReadCloser
 	var stderr io.ReadCloser
 	consoleOut, consoleIn := io.Pipe()
@@ -80,7 +80,7 @@ func do() error {
 			return err
 		}
 		glog.V(4).Infoln("Retrieving Procwatch Command Channel")
-		cmdChan = watcher.GetCmdChannel()
+		//cmdChan = watcher.GetCmdChannel()
 		glog.V(4).Infoln("Retrieving Procwatch Output Channels")
 		stderr, stdout = watcher.GetOutput()
 		if logToFile && useWatch {
@@ -100,15 +100,15 @@ func do() error {
 			return err
 		}
 		if useSched {
-			go pipeCommands(cmdChan, client, nil)
+			//go pipeCommands(cmdChan, client, nil)
 		}
 		if showChat {
-			client.SetChatWriter(consoleIn)
+			//client.SetChatWriter(consoleIn)
 		}
 		if showEvents {
-			client.SetEventWriter(consoleIn)
+			//client.SetEventWriter(consoleIn)
 		}
-		client.RunCommand("say -1 PlayNet GoRcon-ArmA Connected", nil)
+		client.Exec([]byte("say -1 PlayNet GoRcon-ArmA Connected"), nil)
 	} else {
 		fmt.Println("RCon is disabled")
 	}
@@ -162,7 +162,7 @@ func runWatcher(useSched, useWatch bool) (watcher *procwatch.Watcher, err error)
 	return
 }
 
-func runRcon() (*bercon.Client, error) {
+func runRcon() (*rcon.Client, error) {
 	beIP := cfg.GetString("arma.ip")
 	bePort := cfg.GetString("arma.port")
 	bePassword := cfg.GetString("arma.password")
@@ -174,7 +174,7 @@ func runRcon() (*bercon.Client, error) {
 
 		rc := rcon.New()
 	*/
-	beCred := bercon.Credentials{
+	beCred := rcon.Credentials{
 		Username: "",
 		Password: bePassword,
 	}
@@ -184,7 +184,7 @@ func runRcon() (*bercon.Client, error) {
 		return nil, err
 	}
 
-	beCon := bercon.Connection{
+	beCon := rcon.Connection{
 		Addr:               beConAddr,
 		KeepAliveTimer:     beKeepAliveTimer,
 		KeepAliveTolerance: beKeepAliveTolerance,
@@ -200,11 +200,12 @@ func runRcon() (*bercon.Client, error) {
 	rc := rcon.NewClient(
 		beCl.Connect,
 		beCl.Disconnect,
+		beCl.Exec,
 	)
 
 	fmt.Println("Establishing Connection to Server")
-	client.WatcherLoop()
-	return client, nil
+	beCl.WatcherLoop()
+	return rc, nil
 }
 
 func runFileLogger(stdout, stderr io.ReadCloser, logFolder string) {
