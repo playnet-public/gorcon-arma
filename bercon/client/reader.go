@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	raven "github.com/getsentry/raven-go"
 	"github.com/golang/glog"
 	"github.com/playnet-public/gorcon-arma/bercon/common"
 )
@@ -39,6 +40,7 @@ func (c *Client) readerLoop(disc chan int) {
 				continue
 			} else {
 				glog.Error(err)
+				raven.CaptureErrorAndWait(err, nil)
 				return
 			}
 		}
@@ -70,6 +72,7 @@ func (c *Client) handlePacket(packet []byte) error {
 
 	if pType != common.PacketType.Command && pType != common.PacketType.MultiCommand {
 		glog.V(2).Infof("Packet: %v - PacketType: %v", string(packet), pType)
+		raven.CaptureError(common.ErrUnknownPacketType, map[string]string{"packetType": string(pType)})
 		return common.ErrUnknownPacketType
 	}
 
@@ -103,6 +106,7 @@ func (c *Client) handleServerMessage(data []byte) {
 				c.chatWriter.Lock()
 				_, err := c.chatWriter.Write(data)
 				if err != nil {
+					raven.CaptureError(err, nil)
 					glog.Error(err)
 				}
 				c.chatWriter.Unlock()

@@ -11,6 +11,7 @@ import (
 	"runtime"
 	"time"
 
+	raven "github.com/getsentry/raven-go"
 	bercon "github.com/playnet-public/gorcon-arma/bercon/client"
 	"github.com/playnet-public/gorcon-arma/procwatch"
 	"github.com/playnet-public/gorcon-arma/rcon"
@@ -22,11 +23,13 @@ import (
 const (
 	parameterMaxprocs   = "maxprocs"
 	parameterConfigPath = "configPath"
+	parameterDevBuild   = "devbuild"
 )
 
 var (
 	maxprocsPtr   = flag.Int(parameterMaxprocs, runtime.NumCPU(), "max go procs")
 	configPathPtr = flag.String(parameterConfigPath, ".", "config parent folder")
+	devBuildPtr   = flag.Bool(parameterDevBuild, false, "set dev build mode")
 )
 
 var cfg *viper.Viper
@@ -46,13 +49,27 @@ func main() {
 	fmt.Printf("Using %d go procs\n", *maxprocsPtr)
 	runtime.GOMAXPROCS(*maxprocsPtr)
 
-	if err := do(); err != nil {
-		glog.Fatal(err)
-	}
+	raven.CapturePanicAndWait(func() {
+		if err := do(); err != nil {
+			glog.Fatal(err)
+			raven.CaptureErrorAndWait(err, map[string]string{"isFinal": "true"})
+		}
+	}, nil)
 }
 
 func do() error {
 	cfg = getConfig()
+
+	if !*devBuildPtr {
+		raven.SetDSN(cfg.GetString("playnet.sentry"))
+		raven.SetIncludePaths([]string{
+			"github.com/playnet-public/gorcon-arma/",
+		})
+		//raven.SetRelease(version)
+	}
+
+	var err error
+
 	useSched := cfg.GetBool("scheduler.enabled")
 	useWatch := cfg.GetBool("watcher.enabled")
 	useRcon := cfg.GetBool("arma.enabled")
@@ -64,7 +81,6 @@ func do() error {
 
 	quit := make(chan int)
 
-	var err error
 	var watcher *procwatch.Watcher
 	var client *rcon.Client
 	//var cmdChan chan string
@@ -82,13 +98,15 @@ func do() error {
 		glog.V(4).Infoln("Retrieving Procwatch Command Channel")
 		//cmdChan = watcher.GetCmdChannel()
 		glog.V(4).Infoln("Retrieving Procwatch Output Channels")
-		stderr, stdout = watcher.GetOutput()
-		if logToFile && useWatch {
-			go runFileLogger(stdout, stderr, logFolder)
-		}
-		if logToConsole && useWatch {
-			go runConsoleLogger(stdout, stderr, consoleIn)
-		}
+		raven.CapturePanicAndWait(func() {
+			stderr, stdout = watcher.GetOutput()
+			if logToFile && useWatch {
+				go runFileLogger(stdout, stderr, logFolder)
+			}
+			if logToConsole && useWatch {
+				go runConsoleLogger(stdout, stderr, consoleIn)
+			}
+		}, nil)
 	} else {
 		fmt.Println("Scheduler is disabled")
 	}
@@ -201,10 +219,15 @@ func runRcon() (*rcon.Client, error) {
 		beCl.Connect,
 		beCl.Disconnect,
 		beCl.Exec,
+		beCl.AttachEvents,
+		beCl.AttachChat,
 	)
 
 	fmt.Println("Establishing Connection to Server")
-	beCl.WatcherLoop()
+	err = beCl.Connect()
+	if err != nil {
+		return nil, err
+	}
 	return rc, nil
 }
 
@@ -259,12 +282,12 @@ func streamConsole(consoleOut io.Reader) error {
 	return nil
 }
 
-func pipeCommands(cmdChan chan string, c *bercon.Client, w io.WriteCloser) {
+func pipeCommands(cmdChan chan []byte, c *bercon.Client, w io.WriteCloser) {
 	for {
 		glog.V(10).Infoln("Looping pipeCommands")
 		cmd := <-cmdChan
 		if len(cmd) != 0 {
-			c.RunCommand(cmd, w)
+			c.Exec(cmd, w)
 		}
 	}
 }

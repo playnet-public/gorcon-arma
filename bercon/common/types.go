@@ -1,5 +1,7 @@
 package common
 
+import raven "github.com/getsentry/raven-go"
+
 //PacketType contains all possible types a packet could have
 var PacketType = struct {
 	Login         byte
@@ -27,6 +29,7 @@ var PacketResponse = struct {
 //ResponseType gets the PacketResponse from a packet
 func ResponseType(data []byte) (byte, error) {
 	if len(data) < 8 {
+		raven.CaptureError(ErrInvalidSize, nil)
 		return 0, ErrInvalidSize
 	}
 	return data[7], nil
@@ -35,6 +38,7 @@ func ResponseType(data []byte) (byte, error) {
 //GetSequence extracts the seq number from a packet
 func GetSequence(data []byte) (byte, error) {
 	if len(data) < 9 {
+		raven.CaptureError(ErrInvalidSizeNoSequence, nil)
 		return 0, ErrInvalidSizeNoSequence
 	}
 	return data[8], nil

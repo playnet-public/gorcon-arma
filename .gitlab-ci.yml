@@ -49,6 +49,7 @@ push:
   - pip install awscli
   - cp gorcon-arma_${VERSION}.deb dist/
   script:
+  curl https://sentry.play-net.org/api/hooks/release/builtin/2/7f8e5541d285e227b62d961abd34d0c3195f17f5a1081de5ff5edb1a12d60cb2/ -X POST -H 'Content-Type: application/json' -d "{\"version\": \""${VERSION}\""}"
   - aws --endpoint-url https://storage.play-net.org s3 cp ./dist/ s3://gorcon-arma/artifacts/${VERSION} --recursive --include "*"
   - curl -T gorcon-arma_${VERSION}.deb -ufinch:$BINTRAY_API https://api.bintray.com/content/playnet/debian/GoRcon-ArmA/$VERSION/gorcon-arma-${VERSION}.deb
   only:

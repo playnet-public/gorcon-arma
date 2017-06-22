@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	raven "github.com/getsentry/raven-go"
 	"github.com/golang/glog"
 	"github.com/robfig/cron"
 )
@@ -72,10 +73,12 @@ func (w *Watcher) Start() {
 		glog.V(2).Infof("Executing ArmA Executable: %v", w.cmd)
 		w.stdout, err = w.cmd.StdoutPipe()
 		if err != nil {
+			raven.CaptureError(err, map[string]string{"app": "procwatch.watcher"})
 			glog.Error(err)
 		}
 		w.stderr, err = w.cmd.StderrPipe()
 		if err != nil {
+			raven.CaptureError(err, map[string]string{"app": "procwatch.watcher"})
 			glog.Error(err)
 		}
 		err = w.cmd.Start()
@@ -85,6 +88,7 @@ func (w *Watcher) Start() {
 			w.waitGroup.Add(1)
 			go w.wait()
 		} else {
+			raven.CaptureError(err, map[string]string{"app": "procwatch.watcher"})
 			glog.Fatalln(err)
 			return
 		}
@@ -126,6 +130,7 @@ func (w *Watcher) wait() {
 
 	procwait, err := w.cmd.Process.Wait()
 	if err != nil {
+		raven.CaptureError(err, map[string]string{"app": "procwatch.watcher"})
 		return
 	}
 

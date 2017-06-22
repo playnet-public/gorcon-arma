@@ -4,6 +4,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	raven "github.com/getsentry/raven-go"
 	"github.com/golang/glog"
 	"github.com/playnet-public/gorcon-arma/bercon/common"
 )
@@ -18,6 +19,7 @@ func (c *Client) writerLoop(disc chan int, cmd chan transmission) {
 		}
 		if c.con == nil {
 			glog.Errorln(common.ErrConnectionNil)
+			raven.CaptureError(common.ErrConnectionNil, nil)
 			return
 		}
 

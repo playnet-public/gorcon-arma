@@ -21,24 +21,32 @@ type Connection struct {
 
 //Client implements an abstract rcon client object
 type Client struct {
-	Connect    connect
-	Disconnect disconnect
-	Exec       exec
+	Connect      connect
+	Disconnect   disconnect
+	Exec         exec
+	AttachEvents attachEvents
+	AttachChat   attachChat
 }
 
 type connect func() error
 type disconnect func() error
 type exec func(cmd []byte, resp io.WriteCloser) error
+type attachEvents func(w io.Writer) error
+type attachChat func(w io.Writer) error
 
 //NewClient returns an abstract rcon client
 func NewClient(
 	connect connect,
 	disconnect disconnect,
 	exec exec,
+	attachEvents attachEvents,
+	attachChat attachChat,
 ) *Client {
 	c := new(Client)
 	c.Connect = connect
 	c.Disconnect = disconnect
 	c.Exec = exec
+	c.AttachEvents = attachEvents
+	c.AttachChat = attachChat
 	return c
 }

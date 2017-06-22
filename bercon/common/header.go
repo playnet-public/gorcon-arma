@@ -1,6 +1,10 @@
 package common
 
-import "encoding/binary"
+import (
+	"encoding/binary"
+
+	raven "github.com/getsentry/raven-go"
+)
 
 func buildHeader(checksum uint32) []byte {
 	check := make([]byte, 4)
@@ -10,6 +14,7 @@ func buildHeader(checksum uint32) []byte {
 
 func stripHeader(data []byte) ([]byte, error) {
 	if len(data) < 7 {
+		raven.CaptureError(ErrInvalidSizeNoHeader, nil)
 		return []byte{}, ErrInvalidSizeNoHeader
 	}
 	return data[6:], nil

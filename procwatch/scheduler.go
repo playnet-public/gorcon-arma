@@ -7,6 +7,7 @@ import (
 
 	"syscall"
 
+	raven "github.com/getsentry/raven-go"
 	"github.com/golang/glog"
 )
 
@@ -44,7 +45,12 @@ func parseConfig(content []byte) (*Schedule, error) {
 	return config, nil
 }
 
-func (w *Watcher) buildJobs() error {
+func (w *Watcher) buildJobs() (err error) {
+	defer func() {
+		if err != nil {
+			raven.CaptureErrorAndWait(err, map[string]string{"app": "procwatch.scheduler"})
+		}
+	}()
 	scheduleArr := w.schedule.Schedule
 	glog.V(1).Infoln("Scheduling Commands: ")
 	for index := 0; index < len(scheduleArr); index++ {

@@ -3,6 +3,7 @@ package common
 import (
 	"hash/crc32"
 
+	raven "github.com/getsentry/raven-go"
 	"github.com/golang/glog"
 )
 
@@ -10,34 +11,50 @@ func makeChecksum(data []byte) uint32 {
 	return crc32.ChecksumIEEE(data)
 }
 
-func getChecksum(data []byte) (uint32, error) {
+func getChecksum(data []byte) (c uint32, err error) {
+	c = 0
+	defer func() {
+		if err != nil {
+			raven.CaptureError(err, nil)
+		}
+	}()
+
 	if len(data) < 7 {
-		return 0, ErrInvalidHeaderSize
+		err = ErrInvalidHeaderSize
+		return
 	}
 	if data[0] != 'B' || data[1] != 'E' {
-		return 0, ErrInvalidHeaderSyntax
+		err = ErrInvalidHeaderSyntax
+		return
 	}
 	if data[6] != 0xFF {
-		return 0, ErrInvalidHeaderEnd
+		err = ErrInvalidHeaderEnd
+		return
 	}
-	checksum := uint32(data[2]) | uint32(data[3])<<8 | uint32(data[4])<<16 | uint32(data[5])<<24
-	return checksum, nil
+	c = uint32(data[2]) | uint32(data[3])<<8 | uint32(data[4])<<16 | uint32(data[5])<<24
+	return
 }
 
 func verifyChecksum(data []byte, checksum uint32) bool {
 	return crc32.ChecksumIEEE(data) == checksum
 }
 
-func verifyChecksumMatch(data []byte) (bool, error) {
+func verifyChecksumMatch(data []byte) (b bool, err error) {
+	b = false
+	defer func() {
+		if err != nil {
+			raven.CaptureError(err, nil)
+		}
+	}()
 	checksum, err := getChecksum(data)
 	if err != nil {
 		glog.V(3).Infoln("verifyChecksumMatch: failed to get checksum")
-		return false, err
+		return
 	}
 	match := verifyChecksum(data[6:], checksum)
 	if !match {
 		glog.V(3).Infoln("verifyChecksumMatch: failed at checksum match")
-		return false, nil
+		return
 	}
 	return true, nil
 }

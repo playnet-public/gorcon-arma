@@ -1,5 +1,7 @@
 package common
 
+import raven "github.com/getsentry/raven-go"
+
 //BuildPacket creates a new packet with data and type
 func BuildPacket(data []byte, PacketType byte) []byte {
 	data = append([]byte{0xFF, PacketType}, data...)
@@ -31,6 +33,11 @@ func BuildMsgAckPacket(seq uint8) []byte {
 
 //VerifyPacket checks a package and its contents for errors or tampering
 func VerifyPacket(packet []byte) (seq byte, data []byte, pckType byte, err error) {
+	defer func() {
+		if err != nil {
+			raven.CaptureError(err, nil)
+		}
+	}()
 	checksum, err := getChecksum(packet)
 	if err != nil {
 		return
@@ -53,12 +60,18 @@ func VerifyPacket(packet []byte) (seq byte, data []byte, pckType byte, err error
 }
 
 //VerifyLogin checks the login packet
-func VerifyLogin(packet []byte) (byte, error) {
+func VerifyLogin(packet []byte) (b byte, err error) {
+	b = 0
+	defer func() {
+		if err != nil {
+			raven.CaptureError(err, nil)
+		}
+	}()
 	if len(packet) != 9 {
-		return 0, ErrInvalidLoginPacket
+		err = ErrInvalidLoginPacket
 	}
 	if match, err := verifyChecksumMatch(packet); match == false || err != nil {
-		return 0, ErrInvalidChecksum
+		err = ErrInvalidChecksum
 	}
 
 	return packet[8], nil
