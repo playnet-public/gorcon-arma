@@ -90,8 +90,9 @@ func (c *Client) WatcherLoop() {
 	for {
 		glog.V(10).Infoln("Looping in WatcherLoop")
 		if !c.looping {
-			if err := c.Reconnect(); err != nil {
+			if err := c.Connect(); err != nil {
 				glog.V(2).Info(err)
+				//TODO: Add Reconnect Time Setting
 				time.Sleep(time.Second * 3)
 				continue
 			}
@@ -104,7 +105,7 @@ func (c *Client) WatcherLoop() {
 			_ = <-writerDisconnect
 			glog.V(2).Infoln("Writer disconnected")
 			glog.Warningf("Trying to recover from broken Connection (close msg: %v)", d)
-			if err := c.Reconnect(); err == nil {
+			if err := c.Connect(); err == nil {
 				return
 			}
 		case d := <-writerDisconnect:
@@ -113,7 +114,7 @@ func (c *Client) WatcherLoop() {
 			_ = <-readerDisconnect
 			glog.V(2).Infoln("Reader disconnected")
 			glog.Warningf("Trying to recover from broken Connection (close msg: %v)", d)
-			if err := c.Reconnect(); err == nil {
+			if err := c.Connect(); err == nil {
 				return
 			}
 			//TODO: Evaluate it this is required
@@ -123,41 +124,32 @@ func (c *Client) WatcherLoop() {
 	}
 }
 
-//Reconnect after loops exited or if not running
-func (c *Client) Reconnect() error {
-	//c.con.Close()
-	var err error
-	if err = c.Connect(); err == nil {
-		return nil
-	}
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
 //Disconnect the Client
 func (c *Client) Disconnect() error {
-	return nil
-}
-
-//SetChatWriter enables Chat Reading and sets Writer
-func (c *Client) SetChatWriter(w io.Writer) {
-	c.chatWriter.Lock()
-	c.chatWriter.Writer = w
-	c.chatWriter.Unlock()
-}
-
-//SetEventWriter enables Event Reading and sets Writer
-func (c *Client) SetEventWriter(w io.Writer) {
-	c.eventWriter.Lock()
-	c.eventWriter.Writer = w
-	c.eventWriter.Unlock()
+	return c.con.Close()
 }
 
 //Exec adds given cmd to command queue
 func (c *Client) Exec(cmd []byte, resp io.WriteCloser) error {
 	c.cmdChan <- transmission{command: cmd, writeCloser: resp}
+	return nil
+}
+
+//AttachEvents enables the event listener
+//and returns a writer containing the event stream
+func (c *Client) AttachEvents(w io.Writer) error {
+	c.eventWriter.Lock()
+	c.eventWriter.Writer = w
+	c.eventWriter.Unlock()
+	return nil
+}
+
+//AttachChat enables the chat listener
+//and returns a writer containing the chat stream
+func (c *Client) AttachChat(w io.Writer) error {
+	c.chatWriter.Lock()
+	c.chatWriter.Writer = w
+	c.chatWriter.Unlock()
 	return nil
 }
 
