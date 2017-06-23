@@ -17,6 +17,10 @@ import (
 	"github.com/playnet-public/gorcon-arma/scheduler"
 	"github.com/playnet-public/gorcon-arma/watcher"
 
+	"strings"
+
+	"os/exec"
+
 	"github.com/golang/glog"
 	"github.com/spf13/viper"
 )
@@ -193,6 +197,27 @@ func newProcWatch(stderr, stdout io.Writer) (w *watcher.Watcher, err error) {
 
 func logCmd(cmd string) { glog.Infoln(cmd) }
 
+func bashCmd(cmd string) {
+	glog.V(2).Infoln("executing bashCmd with:", cmd)
+	cmds := strings.Split(cmd, " ")
+	if len(cmds) < 1 {
+		glog.Errorln("no compatible command passed to bashCmd")
+		return
+	}
+	proc := exec.Command(cmds[0], cmds[1:]...)
+	//TODO: Evaluate different cmdDir
+	cr, cw := io.Pipe()
+	proc.Stderr = cw
+	proc.Stdout = cw
+	go streamConsole(cr)
+	err := proc.Run()
+	if err != nil {
+		glog.Errorln(err)
+		return
+	}
+	glog.V(2).Infoln("finished bashCmd execution")
+}
+
 func newScheduler() (sched *scheduler.Scheduler, err error) {
 	scPath := cfg.GetString("scheduler.path")
 	schedule, err := scheduler.ReadSchedule(scPath)
@@ -201,6 +226,7 @@ func newScheduler() (sched *scheduler.Scheduler, err error) {
 	}
 	funcs := make(common.ScheduleFuncs)
 	funcs["log"] = logCmd
+	funcs["bash"] = bashCmd
 	sched = scheduler.New(schedule, funcs)
 	return
 }
