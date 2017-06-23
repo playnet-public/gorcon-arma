@@ -9,12 +9,13 @@ import (
 	"os"
 	"path"
 	"runtime"
-	"time"
 
 	raven "github.com/getsentry/raven-go"
 	bercon "github.com/playnet-public/gorcon-arma/bercon/client"
-	"github.com/playnet-public/gorcon-arma/procwatch"
+	"github.com/playnet-public/gorcon-arma/common"
 	"github.com/playnet-public/gorcon-arma/rcon"
+	"github.com/playnet-public/gorcon-arma/scheduler"
+	"github.com/playnet-public/gorcon-arma/watcher"
 
 	"github.com/golang/glog"
 	"github.com/spf13/viper"
@@ -57,7 +58,7 @@ func main() {
 	}, nil)
 }
 
-func do() error {
+func do() (err error) {
 	cfg = getConfig()
 
 	if !*devBuildPtr {
@@ -68,68 +69,55 @@ func do() error {
 		//raven.SetRelease(version)
 	}
 
-	var err error
-
 	useSched := cfg.GetBool("scheduler.enabled")
 	useWatch := cfg.GetBool("watcher.enabled")
-	useRcon := cfg.GetBool("arma.enabled")
-	logToFile := cfg.GetBool("watcher.logToFile")
-	logFolder := cfg.GetString("watcher.logFolder")
 	logToConsole := cfg.GetBool("watcher.logToConsole")
-	showChat := cfg.GetBool("arma.showChat")
-	showEvents := cfg.GetBool("arma.showEvents")
+	useRcon := cfg.GetBool("arma.enabled")
+	var sched *scheduler.Scheduler
+	var watch *watcher.Watcher
+	var client *rcon.Client
 
+	cr, cw := io.Pipe()
+	if logToConsole {
+		go streamConsole(cr)
+	}
 	quit := make(chan int)
 
-	var watcher *procwatch.Watcher
-	var client *rcon.Client
-	//var cmdChan chan string
-	var stdout io.ReadCloser
-	var stderr io.ReadCloser
-	consoleOut, consoleIn := io.Pipe()
-	go streamConsole(consoleOut)
-	// TODO: Refactor so scheduler and watcher are enabled separately
-	if useSched || useWatch {
-		glog.V(4).Infoln("Starting Procwatch")
-		watcher, err = runWatcher(useSched, useWatch)
+	if useSched {
+		sched, err = newScheduler()
 		if err != nil {
-			return err
+			return
 		}
-		glog.V(4).Infoln("Retrieving Procwatch Command Channel")
-		//cmdChan = watcher.GetCmdChannel()
-		glog.V(4).Infoln("Retrieving Procwatch Output Channels")
-		raven.CapturePanicAndWait(func() {
-			stderr, stdout = watcher.GetOutput()
-			if logToFile && useWatch {
-				go runFileLogger(stdout, stderr, logFolder)
-			}
-			if logToConsole && useWatch {
-				go runConsoleLogger(stdout, stderr, consoleIn)
-			}
-		}, nil)
-	} else {
-		fmt.Println("Scheduler is disabled")
+	}
+
+	if useWatch {
+		var stderr, stdout io.Writer
+		if logToConsole {
+			stderr, stdout = cw, cw
+		}
+		watch, err = newProcWatch(stderr, stdout)
+		if err != nil {
+			return
+		}
+		if useSched {
+			sched.UpdateFuncs(watch.InjectExtFuncs(sched.Funcs))
+		}
 	}
 
 	if useRcon {
-		fmt.Println("RCon is enabled")
-		client, err = runRcon()
+		client, err = newRcon()
 		if err != nil {
-			return err
-		}
-		if useSched {
-			//go pipeCommands(cmdChan, client, nil)
-		}
-		if showChat {
-			//client.SetChatWriter(consoleIn)
-		}
-		if showEvents {
-			//client.SetEventWriter(consoleIn)
+			return
 		}
 		client.Exec([]byte("say -1 PlayNet GoRcon-ArmA Connected"), nil)
-	} else {
-		fmt.Println("RCon is disabled")
+		if useSched {
+			sched.UpdateFuncs(client.InjectExtFuncs(sched.Funcs))
+		}
 	}
+
+	//Finish Func and Event Collection and start Scheduling
+	sched.BuildEvents()
+	sched.Start()
 
 	q := <-quit
 	if q == 1 {
@@ -138,60 +126,13 @@ func do() error {
 	return nil
 }
 
-func runWatcher(useSched, useWatch bool) (watcher *procwatch.Watcher, err error) {
-	var armaPath string
-	var armaParam []string
-	var schedulerEntity *procwatch.Schedule
-
-	if useSched {
-		schedulerPath := procwatch.SchedulePath(cfg.GetString("scheduler.path"))
-		schedulerEntity, err = schedulerPath.Parse()
-		if err != nil {
-			return
-		}
-		fmt.Println("\nScheduler is enabled")
-		fmt.Printf("\nScheduler Config: \n"+
-			"Path to scheduler.json: %v \n",
-			schedulerPath)
-	} else {
-		schedulerEntity = &procwatch.Schedule{}
-	}
-
-	if useWatch {
-		armaPath = cfg.GetString("watcher.path")
-		armaParam = cfg.GetStringSlice("watcher.params")
-		fmt.Println("\nWatcher is enabled")
-		fmt.Printf("\nWatcher Config: \n"+
-			"Path to ArmA Executable: %v \n"+
-			"ArmA Parameters: %v \n\n",
-			armaPath, armaParam)
-	}
-
-	pwcfg := procwatch.Cfg{
-		A3exe:        armaPath,
-		A3par:        armaParam,
-		Schedule:     *schedulerEntity,
-		UseScheduler: useSched,
-		UseWatcher:   useWatch,
-	}
-
-	watcher = procwatch.New(pwcfg)
-	watcher.Start()
-	return
-}
-
-func runRcon() (*rcon.Client, error) {
+func newRcon() (*rcon.Client, error) {
 	beIP := cfg.GetString("arma.ip")
 	bePort := cfg.GetString("arma.port")
 	bePassword := cfg.GetString("arma.password")
 	beKeepAliveTimer := cfg.GetInt("arma.keepAliveTimer")
 	beKeepAliveTolerance := cfg.GetInt64("arma.keepAliveTolerance")
 
-	/*
-		beCl := bercon.New(beCon)
-
-		rc := rcon.New()
-	*/
 	beCred := rcon.Credentials{
 		Username: "",
 		Password: bePassword,
@@ -207,89 +148,73 @@ func runRcon() (*rcon.Client, error) {
 		KeepAliveTimer:     beKeepAliveTimer,
 		KeepAliveTolerance: beKeepAliveTolerance,
 	}
-	fmt.Printf("\nRCon Config: \n"+
-		"ArmA Server Address: %v \n"+
-		"ArmA Server Port: %v \n"+
-		"KeepAliveTimer: %v \n"+
-		"KeepAliveTolerance: %v \n\n",
-		beIP, bePort, beKeepAliveTimer, beKeepAliveTolerance)
-
 	beCl := bercon.New(beCon, beCred)
 	rc := rcon.NewClient(
-		beCl.Connect,
+		beCl.WatcherLoop,
 		beCl.Disconnect,
 		beCl.Exec,
 		beCl.AttachEvents,
 		beCl.AttachChat,
 	)
-
-	fmt.Println("Establishing Connection to Server")
-	err = beCl.Connect()
+	glog.Infoln("Establishing Connection to Server")
+	err = rc.Connect()
 	if err != nil {
 		return nil, err
 	}
 	return rc, nil
 }
 
-func runFileLogger(stdout, stderr io.ReadCloser, logFolder string) {
-	t := time.Now()
-	logFileName := fmt.Sprintf("server_log_%v%d%v_%v-%v-%v.log", t.Year(), t.Month(), t.Day(), t.Hour(), t.Minute(), t.Second())
-	fmt.Println("Creating Server Logfile: ", logFileName)
-	_ = os.Mkdir(logFolder, 0775)
-	logFile, err := os.OpenFile(path.Join(logFolder, logFileName), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
-	//logFile, err := os.Create(path.Join(logFolder, logFileName))
-	if err != nil {
-		panic(err)
+func newProcWatch(stderr, stdout io.Writer) (w *watcher.Watcher, err error) {
+	execPath := cfg.GetString("watcher.exec")
+	execDir := cfg.GetString("watcher.dir")
+	if execDir == "" {
+		execDir = path.Dir(execPath)
 	}
-	defer logFile.Close()
+	execParam := cfg.GetStringSlice("watcher.params")
 
-	writer := io.MultiWriter(logFile)
-	close := make(chan int)
-	go func() {
-		_, err := io.Copy(writer, stdout)
-		if err != nil {
-			glog.Errorln(err)
-		}
-		close <- 1
-	}()
-	go func() {
-		_, err := io.Copy(writer, stderr)
-		if err != nil {
-			glog.Errorln(err)
-		}
-		close <- 1
-	}()
-	<-close
-	glog.Warningln("File Logger Closed which is unexpected")
+	proc := watcher.Process{
+		ExecPath:  execPath,
+		ExecDir:   execDir,
+		ExecParam: execParam,
+		StdErr:    stderr,
+		StdOut:    stdout,
+	}
+
+	w = watcher.New(proc)
+	err = w.Exec()
+	if err != nil {
+		return
+	}
+	if cfg.GetBool("watcher.autoRestart") {
+		w.Watch(w.RestartAndWatch)
+	}
+	return w, nil
 }
 
-func runConsoleLogger(stdout, stderr io.ReadCloser, console io.Writer) {
-	std := io.MultiReader(stderr, stdout)
-	go io.Copy(console, std)
+func logCmd(cmd string) { glog.Infoln(cmd) }
+
+func newScheduler() (sched *scheduler.Scheduler, err error) {
+	scPath := cfg.GetString("scheduler.path")
+	schedule, err := scheduler.ReadSchedule(scPath)
+	if err != nil {
+		return
+	}
+	funcs := make(common.ScheduleFuncs)
+	funcs["log"] = logCmd
+	sched = scheduler.New(schedule, funcs)
+	return
 }
 
 func streamConsole(consoleOut io.Reader) error {
 	consoleScanner := bufio.NewScanner(consoleOut)
 	for consoleScanner.Scan() {
-		t := time.Now()
-		timestamp := t.Format("2006-01-02 15:04:05")
-		fmt.Println(timestamp, consoleScanner.Text())
+		glog.Infoln(consoleScanner.Text())
 	}
 	if err := consoleScanner.Err(); err != nil {
 		fmt.Fprintln(os.Stderr, "There was an error with the consoleScanner", err)
 		return err
 	}
 	return nil
-}
-
-func pipeCommands(cmdChan chan []byte, c *bercon.Client, w io.WriteCloser) {
-	for {
-		glog.V(10).Infoln("Looping pipeCommands")
-		cmd := <-cmdChan
-		if len(cmd) != 0 {
-			c.Exec(cmd, w)
-		}
-	}
 }
 
 func getConfig() *viper.Viper {

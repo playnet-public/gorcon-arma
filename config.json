@@ -14,8 +14,10 @@
         "path": "schedule.json"
     },
     "watcher": {
-        "enabled": true,
-        "path": "D:/Program Files (x86)/Steam/SteamApps/common/Arma 3/arma3server.exe",
+        "enabled": false,
+        "autoRestart": true,
+        "exec": "D:/Program Files (x86)/Steam/SteamApps/common/Arma 3/arma3server.exe",
+        "dir": "",
         "params": [
             "-name=goTest",
             "-port-2303"
