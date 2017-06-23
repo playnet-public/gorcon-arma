@@ -1,7 +1,6 @@
 package client
 
 import (
-	"fmt"
 	"io"
 	"net"
 	"sync/atomic"
@@ -62,7 +61,7 @@ func (c *Client) Connect() error {
 		c.con.Close()
 		return common.ErrInvalidLogin
 	}
-	fmt.Println("Login successful")
+	glog.Infoln("Login successful")
 	if !c.looping {
 		c.looping = true
 		c.init = true
@@ -79,7 +78,7 @@ func (c *Client) Connect() error {
 }
 
 //WatcherLoop is responsible for creating and keeping working connections
-func (c *Client) WatcherLoop() {
+func (c *Client) WatcherLoop() (err error) {
 	writerDisconnect := make(chan int)
 	readerDisconnect := make(chan int)
 	// Start Loops only if initial connection is up
@@ -106,7 +105,7 @@ func (c *Client) WatcherLoop() {
 			glog.V(2).Infoln("Writer disconnected")
 			glog.Warningf("Trying to recover from broken Connection (close msg: %v)", d)
 			if err := c.Connect(); err == nil {
-				return
+				return err
 			}
 		case d := <-writerDisconnect:
 			c.looping = false
@@ -115,7 +114,7 @@ func (c *Client) WatcherLoop() {
 			glog.V(2).Infoln("Reader disconnected")
 			glog.Warningf("Trying to recover from broken Connection (close msg: %v)", d)
 			if err := c.Connect(); err == nil {
-				return
+				return err
 			}
 			//TODO: Evaluate it this is required
 			//default:

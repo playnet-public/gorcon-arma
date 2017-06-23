@@ -118,15 +118,11 @@ func (c *Client) handleServerMessage(data []byte) {
 		c.eventWriter.Lock()
 		if strings.Contains(string(data), "logged in") {
 			glog.V(2).Infoln("Login Event: ", string(data))
-			_, err := c.eventWriter.Write(data)
-			if err != nil {
-				glog.Error(err)
-			}
-		} else {
-			_, err := c.eventWriter.Write(data)
-			if err != nil {
-				glog.Error(err)
-			}
+		}
+		_, err := c.eventWriter.Write(data)
+		if err != nil {
+			raven.CaptureError(err, nil)
+			glog.Error(err)
 		}
 		c.eventWriter.Unlock()
 	}
