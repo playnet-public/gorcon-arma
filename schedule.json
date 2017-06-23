@@ -1,17 +1,32 @@
 {
-    "schedule": [{
-            "command": "say -1 Restart in 30 minutes",
-            "restart": true,
+    "schedule": [
+        {
+            "type": "log",
+            "command": "Just logging here",
             "day": "*",
             "hour": "*",
-            "minute": "11"
+            "minute": "*/1"
         },
         {
-            "command": "",
-            "restart": true,
+            "type": "rcon",
+            "command": "say -1 Oh see how GoRcon rocks O.o",
             "day": "*",
-            "hour": "12",
-            "minute": "8"
+            "hour": "*",
+            "minute": "*/1"
+        },
+        {
+            "type": "watcher",
+            "command": "restart",
+            "day": "*",
+            "hour": "*",
+            "minute": "16"
+        },
+        {
+            "type": "scheduler",
+            "command": "reload",
+            "day": "*",
+            "hour": "*",
+            "minute": "*/3"
         }
     ]
 }
