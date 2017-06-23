@@ -16,3 +16,4 @@ export LC_ALL=en_US.UTF-8
 go get -u github.com/golang/glog
 go get -u github.com/robfig/cron
 go get -u github.com/spf13/viper
+go get -u github.com/getsentry/raven-go
