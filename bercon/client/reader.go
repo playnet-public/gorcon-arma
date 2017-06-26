@@ -27,9 +27,9 @@ func (c *Client) readerLoop(disc chan int) {
 		n, err := c.con.Read(c.readBuffer)
 		if err == nil {
 			data := c.readBuffer[:n]
-			glog.V(5).Infof("Received Data: %v", data)
+			glog.V(5).Infof("Received Data: %v", data, "-", string(data))
 			if herr := c.handlePacket(data); herr != nil {
-				glog.Errorln(err)
+				glog.Errorln(herr)
 			}
 			//TODO: Evaluate if parallel aproach is better
 			//go c.handlePacket(data)
@@ -72,7 +72,7 @@ func (c *Client) handlePacket(packet []byte) error {
 
 	if pType != common.PacketType.Command && pType != common.PacketType.MultiCommand {
 		glog.V(2).Infof("Packet: %v - PacketType: %v", string(packet), pType)
-		raven.CaptureError(common.ErrUnknownPacketType, map[string]string{"packetType": string(pType)})
+		raven.CaptureError(common.ErrUnknownPacketType, map[string]string{"packetType": string(pType), "app": "rcon", "module": "reader"})
 		return common.ErrUnknownPacketType
 	}
 
@@ -106,7 +106,7 @@ func (c *Client) handleServerMessage(data []byte) {
 				c.chatWriter.Lock()
 				_, err := c.chatWriter.Write(data)
 				if err != nil {
-					raven.CaptureError(err, nil)
+					raven.CaptureError(err, map[string]string{"app": "rcon", "module": "reader"})
 					glog.Error(err)
 				}
 				c.chatWriter.Unlock()
@@ -121,7 +121,7 @@ func (c *Client) handleServerMessage(data []byte) {
 		}
 		_, err := c.eventWriter.Write(data)
 		if err != nil {
-			raven.CaptureError(err, nil)
+			raven.CaptureError(err, map[string]string{"app": "rcon", "module": "reader"})
 			glog.Error(err)
 		}
 		c.eventWriter.Unlock()

@@ -1,6 +1,10 @@
 package common
 
-import raven "github.com/getsentry/raven-go"
+import (
+	"fmt"
+
+	raven "github.com/getsentry/raven-go"
+)
 
 //BuildPacket creates a new packet with data and type
 func BuildPacket(data []byte, PacketType byte) []byte {
@@ -35,7 +39,7 @@ func BuildMsgAckPacket(seq uint8) []byte {
 func VerifyPacket(packet []byte) (seq byte, data []byte, pckType byte, err error) {
 	defer func() {
 		if err != nil {
-			raven.CaptureError(err, nil)
+			raven.CaptureError(fmt.Errorf("%v - Packet: %v", err, string(data)), map[string]string{"app": "rcon", "module": "packets"})
 		}
 	}()
 	checksum, err := getChecksum(packet)

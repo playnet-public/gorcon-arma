@@ -6,6 +6,9 @@ import (
 	"sync/atomic"
 	"time"
 
+	"os"
+
+	raven "github.com/getsentry/raven-go"
 	"github.com/golang/glog"
 	"github.com/playnet-public/gorcon-arma/bercon/common"
 	"github.com/playnet-public/gorcon-arma/rcon"
@@ -153,6 +156,7 @@ func (c *Client) AttachChat(w io.Writer) error {
 }
 
 func (c *Client) handleResponse(seq byte, response []byte, last bool) {
+	glog.V(6).Infoln("Handling Response:", response, string(response))
 	c.cmdLock.RLock()
 	trm, ex := c.cmdMap[seq]
 	c.cmdLock.RUnlock()
@@ -177,8 +181,15 @@ func (c *Client) handleResponse(seq byte, response []byte, last bool) {
 		trm.response = append(trm.response, trail...)
 		if last {
 			if trm.writeCloser != nil {
+				glog.V(4).Infoln("Writing", string(trm.response), "to output")
 				trm.writeCloser.Write(trm.response)
-				trm.writeCloser.Close()
+				if trm.writeCloser != os.Stderr && trm.writeCloser != os.Stdout {
+					err := trm.writeCloser.Close()
+					if err != nil {
+						glog.Errorln(err)
+						raven.CaptureError(err, map[string]string{"app": "rcon", "module": "client"})
+					}
+				}
 			}
 
 			//TODO: Evaluate if this is required

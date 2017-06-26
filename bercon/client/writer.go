@@ -4,6 +4,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"fmt"
+
 	raven "github.com/getsentry/raven-go"
 	"github.com/golang/glog"
 	"github.com/playnet-public/gorcon-arma/bercon/common"
@@ -19,7 +21,7 @@ func (c *Client) writerLoop(disc chan int, cmd chan transmission) {
 		}
 		if c.con == nil {
 			glog.Errorln(common.ErrConnectionNil)
-			raven.CaptureError(common.ErrConnectionNil, nil)
+			raven.CaptureError(common.ErrConnectionNil, map[string]string{"app": "rcon", "module": "writer"})
 			return
 		}
 
@@ -46,6 +48,7 @@ func (c *Client) writerLoop(disc chan int, cmd chan transmission) {
 				pinbackCount := atomic.LoadInt64(&c.pingbackCount)
 				if diff := keepAliveCount - pinbackCount; diff > c.cfg.KeepAliveTolerance || diff < c.cfg.KeepAliveTolerance*-1 {
 					glog.Errorf("KeepAlive Packets are out of sync by %v", diff)
+					raven.CaptureError(fmt.Errorf("KeepAlive Packets are out of sync by %v", diff), map[string]string{"app": "rcon", "module": "writer"})
 					return
 				}
 				// Experimental change to check if growing count is causing performance leak

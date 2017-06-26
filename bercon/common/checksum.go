@@ -1,6 +1,7 @@
 package common
 
 import (
+	"fmt"
 	"hash/crc32"
 
 	raven "github.com/getsentry/raven-go"
@@ -15,7 +16,7 @@ func getChecksum(data []byte) (c uint32, err error) {
 	c = 0
 	defer func() {
 		if err != nil {
-			raven.CaptureError(err, nil)
+			raven.CaptureError(fmt.Errorf("%v - Packet: %v", err, string(data)), map[string]string{"app": "rcon", "module": "client"})
 		}
 	}()
 
@@ -48,12 +49,12 @@ func verifyChecksumMatch(data []byte) (b bool, err error) {
 	}()
 	checksum, err := getChecksum(data)
 	if err != nil {
-		glog.V(3).Infoln("verifyChecksumMatch: failed to get checksum")
+		glog.Errorln("verifyChecksumMatch: failed to get checksum")
 		return
 	}
 	match := verifyChecksum(data[6:], checksum)
 	if !match {
-		glog.V(3).Infoln("verifyChecksumMatch: failed at checksum match")
+		glog.Errorln("verifyChecksumMatch: failed at checksum match")
 		return
 	}
 	return true, nil
