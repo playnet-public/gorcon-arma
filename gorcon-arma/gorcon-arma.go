@@ -76,15 +76,13 @@ func do() (err error) {
 	useSched := cfg.GetBool("scheduler.enabled")
 	useWatch := cfg.GetBool("watcher.enabled")
 	logToConsole := cfg.GetBool("watcher.logToConsole")
+	logToFile := cfg.GetBool("watcher.logToFile")
+	logFolder := cfg.GetString("watcher.logFolder")
 	useRcon := cfg.GetBool("arma.enabled")
 	var sched *scheduler.Scheduler
 	var watch *watcher.Watcher
 	var client *rcon.Client
 
-	cr, cw := io.Pipe()
-	if logToConsole {
-		go streamConsole(cr)
-	}
 	quit := make(chan int)
 
 	if useSched {
@@ -96,8 +94,15 @@ func do() (err error) {
 
 	if useWatch {
 		var stderr, stdout io.Writer
+		if logToFile {
+			logFile := newLogfile(logFolder)
+			stdout = io.MultiWriter(logFile)
+			stderr = io.MultiWriter(logFile)
+			defer logFile.Close()
+		}
 		if logToConsole {
-			stderr, stdout = cw, cw
+			stderr = io.MultiWriter(stderr, os.Stderr)
+			stdout = io.MultiWriter(stdout, os.Stdout)
 		}
 		watch, err = newProcWatch(stderr, stdout)
 		if err != nil {
@@ -113,7 +118,11 @@ func do() (err error) {
 		if err != nil {
 			return
 		}
-		client.Exec([]byte("say -1 PlayNet GoRcon-ArmA Connected"), nil)
+		//Take care of the writers passed here!
+		//Writers other than os.Std* will always be closed after execution
+		client.Exec([]byte("say -1 PlayNet GoRcon-ArmA Connected"), os.Stdout)
+		client.Exec([]byte("players"), os.Stdout)
+		client.Exec([]byte("missions"), os.Stdout)
 		if useSched {
 			sched.UpdateFuncs(client.InjectExtFuncs(sched.Funcs))
 		}
@@ -206,10 +215,9 @@ func bashCmd(cmd string) {
 	}
 	proc := exec.Command(cmds[0], cmds[1:]...)
 	//TODO: Evaluate different cmdDir
-	cr, cw := io.Pipe()
-	proc.Stderr = cw
-	proc.Stdout = cw
-	go streamConsole(cr)
+	//TODO: Add a way to configure other writers (logFile?)
+	proc.Stderr = os.Stderr
+	proc.Stdout = os.Stdout
 	err := proc.Run()
 	if err != nil {
 		glog.Errorln(err)
@@ -231,16 +239,16 @@ func newScheduler() (sched *scheduler.Scheduler, err error) {
 	return
 }
 
-func streamConsole(consoleOut io.Reader) error {
-	consoleScanner := bufio.NewScanner(consoleOut)
-	for consoleScanner.Scan() {
-		glog.Infoln(consoleScanner.Text())
+func newLogfile(logFolder string) *os.File {
+	t := time.Now()
+	logFileName := fmt.Sprintf("server_log_%v%d%v_%v-%v-%v.log", t.Year(), t.Month(), t.Day(), t.Hour(), t.Minute(), t.Second())
+	glog.Infoln("Creating Server Logfile: ", logFileName)
+	_ = os.Mkdir(logFolder, 0775)
+	logFile, err := os.OpenFile(path.Join(logFolder, logFileName), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	if err != nil {
+		panic(err)
 	}
-	if err := consoleScanner.Err(); err != nil {
-		fmt.Fprintln(os.Stderr, "There was an error with the consoleScanner", err)
-		return err
-	}
-	return nil
+	return logFile
 }
 
 func getConfig() *viper.Viper {
