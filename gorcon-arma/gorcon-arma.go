@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"flag"
 	"fmt"
 	"io"
@@ -9,6 +8,7 @@ import (
 	"os"
 	"path"
 	"runtime"
+	"time"
 
 	raven "github.com/getsentry/raven-go"
 	bercon "github.com/playnet-public/gorcon-arma/bercon/client"
