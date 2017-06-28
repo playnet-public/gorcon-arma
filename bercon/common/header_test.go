@@ -24,7 +24,7 @@ func Test_buildHeader(t *testing.T) {
 
 func Test_stripHeader(t *testing.T) {
 	cmd := "Kick steve"
-	packet := buildPacket([]byte(cmd), packetType.Command)
+	packet := BuildPacket([]byte(cmd), PacketType.Command)
 	result, err := stripHeader(packet)
 	if err != nil {
 		t.Fatal("on StripHeader:", err.Error())

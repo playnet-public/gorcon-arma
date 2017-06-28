@@ -51,7 +51,7 @@ func Test_CRCVerification(t *testing.T) {
 	RealHash := binary.LittleEndian.Uint32(hash)
 	ActualHash := crc32.Checksum(data, crc32.MakeTable(crc32.IEEE))
 	liveExample := makeChecksum(data)
-	livebinary := buildLoginPacket("admin")[2:7]
+	livebinary := BuildLoginPacket("admin")[2:7]
 	LivePacket := binary.LittleEndian.Uint32(livebinary)
 
 	if RealHash != ActualHash {

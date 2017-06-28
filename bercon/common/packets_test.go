@@ -18,7 +18,7 @@ func Test_getSequence(t *testing.T) {
 	}
 
 	for _, v := range tests {
-		result, err := getSequence(v.test)
+		result, err := GetSequence(v.test)
 		if err != nil {
 			t.Error("Packet Size mismatch")
 		}
@@ -43,7 +43,7 @@ func Test_responseType(t *testing.T) {
 		},
 	}
 	for _, v := range tests {
-		result, err := responseType(v.test)
+		result, err := ResponseType(v.test)
 		if err != nil {
 			t.Error("Test:", v.test, "Failed due to error:", err)
 		}
