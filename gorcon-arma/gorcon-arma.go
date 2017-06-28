@@ -12,6 +12,7 @@ import (
 
 	raven "github.com/getsentry/raven-go"
 	bercon "github.com/playnet-public/gorcon-arma/bercon/client"
+	"github.com/playnet-public/gorcon-arma/bercon/playerManager"
 	"github.com/playnet-public/gorcon-arma/common"
 	"github.com/playnet-public/gorcon-arma/rcon"
 	"github.com/playnet-public/gorcon-arma/scheduler"
@@ -92,18 +93,19 @@ func do() (err error) {
 		}
 	}
 
+	var stderr, stdout io.Writer
+	if logToFile {
+		logFile := newLogfile(logFolder)
+		stdout = io.MultiWriter(logFile)
+		stderr = io.MultiWriter(logFile)
+		defer logFile.Close()
+	}
+	if logToConsole {
+		stderr = io.MultiWriter(stderr, os.Stderr)
+		stdout = io.MultiWriter(stdout, os.Stdout)
+	}
+
 	if useWatch {
-		var stderr, stdout io.Writer
-		if logToFile {
-			logFile := newLogfile(logFolder)
-			stdout = io.MultiWriter(logFile)
-			stderr = io.MultiWriter(logFile)
-			defer logFile.Close()
-		}
-		if logToConsole {
-			stderr = io.MultiWriter(stderr, os.Stderr)
-			stdout = io.MultiWriter(stdout, os.Stdout)
-		}
 		watch, err = newProcWatch(stderr, stdout)
 		if err != nil {
 			return
@@ -121,8 +123,15 @@ func do() (err error) {
 		//Take care of the writers passed here!
 		//Writers other than os.Std* will always be closed after execution
 		client.Exec([]byte("say -1 PlayNet GoRcon-ArmA Connected"), os.Stdout)
-		client.Exec([]byte("players"), os.Stdout)
+		pm := newPlayerManager(client)
+		err = pm.Refresh()
+		if err != nil {
+			return
+		}
+		glog.Infoln("Players on Server:", pm.Get())
 		client.Exec([]byte("missions"), os.Stdout)
+		client.AttachChat(stdout)
+		client.AttachEvents(stdout)
 		if useSched {
 			sched.UpdateFuncs(client.InjectExtFuncs(sched.Funcs))
 		}
@@ -175,6 +184,19 @@ func newRcon() (*rcon.Client, error) {
 		return nil, err
 	}
 	return rc, nil
+}
+
+func newPlayerManager(c *rcon.Client) *rcon.PlayerManager {
+	bePm := &playerManager.PlayerManager{
+		Client: c,
+	}
+	return rcon.NewPlayerManager(
+		bePm.Refresh,
+		bePm.Get,
+		bePm.Ban,
+		bePm.Kick,
+		bePm.Message,
+	)
 }
 
 func newProcWatch(stderr, stdout io.Writer) (w *watcher.Watcher, err error) {

@@ -19,6 +19,12 @@ type Connection struct {
 	ReconnectTimeout   int
 }
 
+type connect func() error
+type disconnect func() error
+type exec func(cmd []byte, resp io.WriteCloser) error
+type attachEvents func(w io.Writer) error
+type attachChat func(w io.Writer) error
+
 //Client implements an abstract rcon client object
 type Client struct {
 	Connect      connect
@@ -27,12 +33,6 @@ type Client struct {
 	AttachEvents attachEvents
 	AttachChat   attachChat
 }
-
-type connect func() error
-type disconnect func() error
-type exec func(cmd []byte, resp io.WriteCloser) error
-type attachEvents func(w io.Writer) error
-type attachChat func(w io.Writer) error
 
 //NewClient returns an abstract rcon client
 func NewClient(
