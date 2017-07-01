@@ -32,7 +32,7 @@ func (pm *PlayerManager) Refresh() error {
 
 	r, w := io.Pipe()
 
-	var players rcon.Players
+	players := new(rcon.Players)
 	quit := make(chan error)
 
 	go scanForPlayers(players, r, quit)
@@ -44,7 +44,7 @@ func (pm *PlayerManager) Refresh() error {
 	}
 	q := <-quit
 	if q == nil {
-		pm.Players = players
+		pm.Players = *players
 		return nil
 	}
 	return q
@@ -55,7 +55,7 @@ func (pm *PlayerManager) Get() rcon.Players {
 	return pm.Players
 }
 
-func scanForPlayers(players rcon.Players, r io.ReadCloser, quit chan error) {
+func scanForPlayers(players *rcon.Players, r io.ReadCloser, quit chan error) {
 	reg, err := regexp.Compile(`(\d+)\s+(\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}):(\d+\b)\s+(\d+)\s+([0-9a-fA-F]+)\(\w+\)\s([\S ]+)`)
 	if err != nil {
 		quit <- err
@@ -95,7 +95,7 @@ func scanForPlayers(players rcon.Players, r io.ReadCloser, quit chan error) {
 			Port: port,
 			Ping: ping,
 		}
-		players = append(players, player)
+		*players = append(*players, player)
 	}
 	if err := scanner.Err(); err != nil {
 		quit <- err

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	raven "github.com/getsentry/raven-go"
+	"github.com/playnet-public/gorcon-arma/bercon/banManager"
 	bercon "github.com/playnet-public/gorcon-arma/bercon/client"
 	"github.com/playnet-public/gorcon-arma/bercon/playerManager"
 	"github.com/playnet-public/gorcon-arma/common"
@@ -128,10 +129,17 @@ func do() (err error) {
 		if err != nil {
 			return
 		}
-		glog.Infoln("Players on Server:", pm.Get())
-		client.Exec([]byte("missions"), os.Stdout)
+		bm := newBanManager(client)
+		err = bm.Refresh()
+		if err != nil {
+			return
+		}
 		client.AttachChat(stdout)
 		client.AttachEvents(stdout)
+
+		glog.Infoln("Players on Server:", pm.Get())
+		glog.Infoln("Bans on Server:", bm.Get())
+
 		if useSched {
 			sched.UpdateFuncs(client.InjectExtFuncs(sched.Funcs))
 		}
@@ -196,6 +204,20 @@ func newPlayerManager(c *rcon.Client) *rcon.PlayerManager {
 		bePm.Ban,
 		bePm.Kick,
 		bePm.Message,
+	)
+}
+
+func newBanManager(c *rcon.Client) *rcon.BanManager {
+	beBm := &banManager.BanManager{
+		Client: c,
+	}
+	return rcon.NewBanManager(
+		beBm.Refresh,
+		beBm.Get,
+		beBm.Save,
+		beBm.Load,
+		beBm.Add,
+		beBm.Remove,
 	)
 }
 
