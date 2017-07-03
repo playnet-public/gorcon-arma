@@ -11,19 +11,19 @@ import (
 
 //MessageTypes are mapping the event Type to their string values
 var MessageTypes = struct {
-	Direct       string
-	Global      string
-	Side string
+	Direct string
+	Global string
+	Side   string
 }{
-	Direct:       "direct",
-	Global:      "global",
-	Side: "side",
+	Direct: "direct",
+	Global: "global",
+	Side:   "side",
 }
 
 //MessageManager is responsible for handling Messages
 type MessageManager struct {
 	Messages rcon.Messages
-	rwm    sync.RWMutex
+	rwm      sync.RWMutex
 }
 
 //NewMessageManager returns a new Manager Object
