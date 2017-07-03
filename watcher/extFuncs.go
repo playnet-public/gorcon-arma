@@ -3,10 +3,10 @@ package watcher
 import "github.com/playnet-public/gorcon-arma/common"
 import "github.com/golang/glog"
 
-//InjectExtFuncs takes a map of functions and adds Watcher Functions
-func (w *Watcher) InjectExtFuncs(funcs common.ScheduleFuncs) common.ScheduleFuncs {
-	funcs["watcher"] = w.extFuncs()
-	return funcs
+//ExtFuncs returns functions to be externally exposed
+func (w *Watcher) ExtFuncs() common.ExtFuncs {
+	f := common.NewExtFunc("watcher", w.extFuncs())
+	return common.NewExtFuncs(f)
 }
 
 func (w *Watcher) extFuncs() common.ScheduleFunc {

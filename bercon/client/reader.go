@@ -29,6 +29,7 @@ func (c *Client) readerLoop(disc chan int) {
 			data := c.readBuffer[:n]
 			glog.V(5).Infof("Received Data: %v", data, "-", string(data))
 			if herr := c.handlePacket(data); herr != nil {
+				raven.CaptureError(err, map[string]string{"app": "rcon", "module": "reader"})
 				glog.Errorln(herr)
 			}
 			//TODO: Evaluate if parallel aproach is better
@@ -40,7 +41,7 @@ func (c *Client) readerLoop(disc chan int) {
 				continue
 			} else {
 				glog.Error(err)
-				raven.CaptureErrorAndWait(err, nil)
+				raven.CaptureErrorAndWait(err, map[string]string{"app": "rcon", "module": "reader"})
 				return
 			}
 		}
@@ -94,7 +95,6 @@ func (c *Client) handlePacket(packet []byte) error {
 
 func (c *Client) handleServerMessage(data []byte) {
 	var ChatPatterns = []string{
-		/*"RCon admin", <- Kicked out to handle as event? */
 		"(Group)",
 		"(Vehicle)",
 		"(Unknown)",
@@ -116,9 +116,6 @@ func (c *Client) handleServerMessage(data []byte) {
 	}
 	if c.eventWriter.Writer != nil {
 		c.eventWriter.Lock()
-		if strings.Contains(string(data), "logged in") {
-			glog.V(2).Infoln("Login Event: ", string(data))
-		}
 		_, err := c.eventWriter.Write(data)
 		if err != nil {
 			raven.CaptureError(err, map[string]string{"app": "rcon", "module": "reader"})

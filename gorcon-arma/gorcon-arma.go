@@ -13,6 +13,8 @@ import (
 	raven "github.com/getsentry/raven-go"
 	"github.com/playnet-public/gorcon-arma/bercon/banManager"
 	bercon "github.com/playnet-public/gorcon-arma/bercon/client"
+	"github.com/playnet-public/gorcon-arma/bercon/eventManager"
+	"github.com/playnet-public/gorcon-arma/bercon/messageManager"
 	"github.com/playnet-public/gorcon-arma/bercon/playerManager"
 	"github.com/playnet-public/gorcon-arma/common"
 	"github.com/playnet-public/gorcon-arma/rcon"
@@ -85,7 +87,7 @@ func do() (err error) {
 	var watch *watcher.Watcher
 	var client *rcon.Client
 
-	quit := make(chan int)
+	quit := make(chan error)
 
 	if useSched {
 		sched, err = newScheduler()
@@ -112,7 +114,7 @@ func do() (err error) {
 			return
 		}
 		if useSched {
-			sched.UpdateFuncs(watch.InjectExtFuncs(sched.Funcs))
+			sched.UpdateFuncs(watch.ExtFuncs())
 		}
 	}
 
@@ -134,14 +136,37 @@ func do() (err error) {
 		if err != nil {
 			return
 		}
-		client.AttachChat(stdout)
-		client.AttachEvents(stdout)
+
+		em := newEventManager()
+		eventReader, eventWriter := io.Pipe()
+		//TODO: Check if we really want to pass in the quit channel here as it could cause a full scale server exit
+		//Maybe add a channel triggering a re-init for the rcon lib based on the error passed
+		em.Listen(eventReader, quit)
+		if err != nil {
+			return
+		}
+
+		mm := newMessageManager()
+		messageReader, messageWriter := io.Pipe()
+		//TODO: Check if we really want to pass in the quit channel here as it could cause a full scale server exit
+		//Maybe add a channel triggering a re-init for the rcon lib based on the error passed
+		mm.Listen(messageReader, quit)
+		if err != nil {
+			return
+		}
+
+		client.AttachChat(io.MultiWriter(stdout, messageWriter))
+		client.AttachEvents(io.MultiWriter(stdout, eventWriter))
 
 		glog.Infoln("Players on Server:", pm.Get())
 		glog.Infoln("Bans on Server:", bm.Get())
 
 		if useSched {
-			sched.UpdateFuncs(client.InjectExtFuncs(sched.Funcs))
+			sched.UpdateFuncs(
+				client.ExtFuncs(),
+				em.ExtFuncs(),
+				mm.ExtFuncs(),
+			)
 		}
 	}
 
@@ -150,10 +175,8 @@ func do() (err error) {
 	sched.Start()
 
 	q := <-quit
-	if q == 1 {
-		return nil
-	}
-	return nil
+	err = q
+	return q
 }
 
 func newRcon() (*rcon.Client, error) {
@@ -218,6 +241,26 @@ func newBanManager(c *rcon.Client) *rcon.BanManager {
 		beBm.Load,
 		beBm.Add,
 		beBm.Remove,
+	)
+}
+
+func newEventManager() *rcon.EventManager {
+	beEv := &eventManager.EventManager{}
+	return rcon.NewEventManager(
+		beEv.Parse,
+		beEv.Add,
+		beEv.Get,
+		beEv.GetNew,
+	)
+}
+
+func newMessageManager() *rcon.MessageManager {
+	beMs := &messageManager.MessageManager{}
+	return rcon.NewMessageManager(
+		beMs.Parse,
+		beMs.Add,
+		beMs.Get,
+		beMs.GetNew,
 	)
 }
 

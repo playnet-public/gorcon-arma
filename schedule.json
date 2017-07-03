@@ -8,8 +8,15 @@
             "minute": "*/1"
         },
         {
-            "type": "bash",
-            "command": "git status",
+            "type": "events",
+            "command": "get",
+            "day": "*",
+            "hour": "*",
+            "minute": "*/1"
+        },
+        {
+            "type": "messages",
+            "command": "get",
             "day": "*",
             "hour": "*",
             "minute": "*/1"

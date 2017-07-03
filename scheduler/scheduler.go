@@ -135,9 +135,12 @@ func (s *Scheduler) Reload(path string) (err error) {
 }
 
 //UpdateFuncs recreates the common.ScheduleFuncs from funcs
-func (s *Scheduler) UpdateFuncs(funcs common.ScheduleFuncs) {
-	funcs["scheduler"] = s.scheduleFunc
-	s.Funcs = funcs
+func (s *Scheduler) UpdateFuncs(funcs ...common.ExtFuncs) {
+	for _, extF := range funcs {
+		for _, f := range extF {
+			s.Funcs[f.Key] = f.Func
+		}
+	}
 }
 
 //ReadSchedule json from path and return Schedule
