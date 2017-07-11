@@ -31,7 +31,7 @@ package:
   stage: build
   script:
   - make install
-  - VERSION=$VERSION make package | true
+  - VERSION=$VERSION make package || true
   - cp /go/gorcon-arma_${VERSION}.deb .
   only:
   - tags
