@@ -31,7 +31,7 @@ package:
   stage: build
   script:
   - make install
-  - VERSION=$VERSION make package
+  - VERSION=$VERSION make package | true
   - cp /go/gorcon-arma_${VERSION}.deb .
   only:
   - tags
@@ -59,9 +59,6 @@ push:
   only:
   - tags
   when: on_success
-  environment:
-    name: storage
-    url: https://storage.play-net.org/minio/gorcon-arma
   artifacts:
     paths:
     - dist/
