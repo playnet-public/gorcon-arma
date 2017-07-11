@@ -32,7 +32,7 @@ package:
   script:
   - make install
   - VERSION=$VERSION make package || true
-  - cp /go/gorcon-arma_${VERSION}.deb .
+  - cp /go/gorcon-arma_${VERSION}.deb . || true
   only:
   - tags
   environment:
