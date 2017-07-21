@@ -48,7 +48,7 @@ func main() {
 	glog.CopyStandardLogTo("info")
 	flag.Parse()
 	fmt.Println("-- PlayNet GoRcon-ArmA - OpenSource Server Manager --")
-	fmt.Println("Version:", version)
+	//fmt.Println("Version:", version)
 	fmt.Println("SourceCode: http://bit.ly/gorcon-code")
 	fmt.Println("Tasks: http://bit.ly/gorcon-issues")
 	fmt.Println("")
@@ -171,8 +171,10 @@ func do() (err error) {
 	}
 
 	//Finish Func and Event Collection and start Scheduling
-	sched.BuildEvents()
-	sched.Start()
+	if useSched {
+		sched.BuildEvents()
+		sched.Start()
+	}
 
 	q := <-quit
 	err = q
