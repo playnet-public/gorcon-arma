@@ -5,6 +5,8 @@ import (
 	"io"
 	"time"
 
+	"sync"
+
 	raven "github.com/getsentry/raven-go"
 	"github.com/golang/glog"
 )
@@ -16,15 +18,51 @@ type EventManager struct {
 	Add    addEvent
 	Get    getEvents
 	GetNew getNewEvents
+	//PlayerManager *PlayerManager
 }
 
 //Event represents an abstract rcon event
 type Event struct {
-	ID        int       `json:"id"`
 	Source    string    `json:"src"`
 	Type      string    `json:"type"`
 	Timestamp time.Time `json:"timestamp"`
-	Content   string    `json:"content"`
+	Raw       string    `json:"raw"`
+}
+
+//PlayerEventType is the player linked events type
+type PlayerEventType int
+
+//PlayerEventTypes list the various event types a player could be linked to
+var PlayerEventTypes = struct {
+	Connect    PlayerEventType
+	Check      PlayerEventType
+	Verified   PlayerEventType
+	Disconnect PlayerEventType
+	Chat       PlayerEventType
+	Kick       PlayerEventType
+	Ban        PlayerEventType
+}{
+	Connect:    0,
+	Check:      1,
+	Verified:   2,
+	Disconnect: 3,
+	Chat:       4,
+	Kick:       5,
+	Ban:        6,
+}
+
+//PlayerEvent describes events that can be linked to a player
+type PlayerEvent struct {
+	Source    string          `json:"src"`
+	Type      PlayerEventType `json:"type"`
+	Timestamp time.Time       `json:"timestamp"`
+	Raw       string          `json:"raw"`
+}
+
+//PlayerEvents provides a lockable PlayerEvents Array
+type PlayerEvents struct {
+	e []PlayerEvent
+	sync.RWMutex
 }
 
 //Events is the Event List
@@ -41,13 +79,15 @@ func NewEventManager(
 	add addEvent,
 	get getEvents,
 	getNew getNewEvents,
+	//pm *PlayerManager,
 ) *EventManager {
-	pm := new(EventManager)
-	pm.Parse = parse
-	pm.Add = add
-	pm.Get = get
-	pm.GetNew = getNew
-	return pm
+	em := new(EventManager)
+	em.Parse = parse
+	em.Add = add
+	em.Get = get
+	em.GetNew = getNew
+	//em.PlayerManager = pm
+	return em
 }
 
 //Listen to the passed in writer for events

@@ -11,11 +11,8 @@ import (
 	"time"
 
 	raven "github.com/getsentry/raven-go"
-	"github.com/playnet-public/gorcon-arma/bercon/banManager"
 	bercon "github.com/playnet-public/gorcon-arma/bercon/client"
-	"github.com/playnet-public/gorcon-arma/bercon/eventManager"
-	"github.com/playnet-public/gorcon-arma/bercon/messageManager"
-	"github.com/playnet-public/gorcon-arma/bercon/playerManager"
+	"github.com/playnet-public/gorcon-arma/bercon/funcs"
 	"github.com/playnet-public/gorcon-arma/common"
 	"github.com/playnet-public/gorcon-arma/rcon"
 	"github.com/playnet-public/gorcon-arma/scheduler"
@@ -48,14 +45,15 @@ func main() {
 	glog.CopyStandardLogTo("info")
 	flag.Parse()
 	fmt.Println("-- PlayNet GoRcon-ArmA - OpenSource Server Manager --")
-	//fmt.Println("Version:", version)
+	fmt.Println("Version:", version)
 	fmt.Println("SourceCode: http://bit.ly/gorcon-code")
 	fmt.Println("Tasks: http://bit.ly/gorcon-issues")
 	fmt.Println("")
 	fmt.Println("This project is work in progress - Use at your own risk")
 	fmt.Println("--")
-	fmt.Println("")
+	fmt.Println("OS:", runtime.GOOS)
 	fmt.Printf("Using %d go procs\n", *maxprocsPtr)
+	fmt.Println("")
 	runtime.GOMAXPROCS(*maxprocsPtr)
 
 	raven.CapturePanicAndWait(func() {
@@ -123,49 +121,33 @@ func do() (err error) {
 		if err != nil {
 			return
 		}
+
+		rconFuncs := funcs.New(client)
+
+		bm := newBanManager()
+
+		demoBan := &rcon.Ban{
+			Descriptor: "a69feed9123832b560f7d8b073eebf477",
+			Reason:     "GoRcon Works!",
+		}
+
+		bm.AddBan(demoBan)
+
+		eventReader, eventWriter := io.Pipe()
+		pm := newPlayerManager(*rconFuncs, bm)
+
+		pm.Listen(eventReader, quit)
+
 		//Take care of the writers passed here!
 		//Writers other than os.Std* will always be closed after execution
 		client.Exec([]byte("say -1 PlayNet GoRcon-ArmA Connected"), os.Stdout)
-		pm := newPlayerManager(client)
-		err = pm.Refresh()
-		if err != nil {
-			return
-		}
-		bm := newBanManager(client)
-		err = bm.Refresh()
-		if err != nil {
-			return
-		}
 
-		em := newEventManager()
-		eventReader, eventWriter := io.Pipe()
-		//TODO: Check if we really want to pass in the quit channel here as it could cause a full scale server exit
-		//Maybe add a channel triggering a re-init for the rcon lib based on the error passed
-		em.Listen(eventReader, quit)
-		if err != nil {
-			return
-		}
-
-		mm := newMessageManager()
-		messageReader, messageWriter := io.Pipe()
-		//TODO: Check if we really want to pass in the quit channel here as it could cause a full scale server exit
-		//Maybe add a channel triggering a re-init for the rcon lib based on the error passed
-		mm.Listen(messageReader, quit)
-		if err != nil {
-			return
-		}
-
-		client.AttachChat(io.MultiWriter(stdout, messageWriter))
-		client.AttachEvents(io.MultiWriter(stdout, eventWriter))
-
-		glog.Infoln("Players on Server:", pm.Get())
-		glog.Infoln("Bans on Server:", bm.Get())
+		client.AttachChat(io.MultiWriter(eventWriter, stdout))
+		client.AttachEvents(io.MultiWriter(eventWriter, stdout))
 
 		if useSched {
 			sched.UpdateFuncs(
 				client.ExtFuncs(),
-				em.ExtFuncs(),
-				mm.ExtFuncs(),
 			)
 		}
 	}
@@ -219,51 +201,13 @@ func newRcon() (*rcon.Client, error) {
 	return rc, nil
 }
 
-func newPlayerManager(c *rcon.Client) *rcon.PlayerManager {
-	bePm := &playerManager.PlayerManager{
-		Client: c,
-	}
-	return rcon.NewPlayerManager(
-		bePm.Refresh,
-		bePm.Get,
-		bePm.Ban,
-		bePm.Kick,
-		bePm.Message,
-	)
+func newBanManager() *rcon.BanManager {
+	return rcon.NewBanManager()
 }
 
-func newBanManager(c *rcon.Client) *rcon.BanManager {
-	beBm := &banManager.BanManager{
-		Client: c,
-	}
-	return rcon.NewBanManager(
-		beBm.Refresh,
-		beBm.Get,
-		beBm.Save,
-		beBm.Load,
-		beBm.Add,
-		beBm.Remove,
-	)
-}
-
-func newEventManager() *rcon.EventManager {
-	beEv := &eventManager.EventManager{}
-	return rcon.NewEventManager(
-		beEv.Parse,
-		beEv.Add,
-		beEv.Get,
-		beEv.GetNew,
-	)
-}
-
-func newMessageManager() *rcon.MessageManager {
-	beMs := &messageManager.MessageManager{}
-	return rcon.NewMessageManager(
-		beMs.Parse,
-		beMs.Add,
-		beMs.Get,
-		beMs.GetNew,
-	)
+func newPlayerManager(funcs rcon.Funcs, bm *rcon.BanManager) *rcon.PlayerManager {
+	pm := rcon.NewPlayerManager(funcs, bm)
+	return pm
 }
 
 func newProcWatch(stderr, stdout io.Writer) (w *watcher.Watcher, err error) {
