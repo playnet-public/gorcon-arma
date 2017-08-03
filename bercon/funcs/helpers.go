@@ -24,7 +24,7 @@ var RegEx = struct {
 	PlayerInfo: regexp.MustCompile(`[Pp]layer\s#([0-9]+)\s(.+)`),
 	GUID:       regexp.MustCompile(`([a-z|0-9]{32})`),
 	NetInf:     regexp.MustCompile(`(\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}):(\d+\b)`),
-	Type:       regexp.MustCompile(`(disconnected|connected|Verified|GUID:)`),
+	Type:       regexp.MustCompile(`(disconnected|connected|Verified|GUID:|RCon)`),
 	//connectReg, err := regexp.Compile(`[\S ]+\s#(\d)\s([\S ]+)\s\((\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})?:(\d+\b)\)\s[\S ]+`)
 }
 
@@ -43,7 +43,7 @@ func scanForPlayers(players *rcon.Players, r io.ReadCloser, quit chan error) {
 			continue
 		}
 		playerInfo = playerInfo[1:]
-		fmt.Println("Player Matched:", playerInfo)
+		glog.V(3).Infoln("Player Matched:", playerInfo)
 		id, err := strconv.Atoi(playerInfo[0])
 		if err != nil {
 			quit <- err
@@ -60,7 +60,7 @@ func scanForPlayers(players *rcon.Players, r io.ReadCloser, quit chan error) {
 		player.Port = playerInfo[2]
 		player.Ping = playerInfo[3]
 
-		players.Add(player)
+		players.Append(player)
 	}
 	if err := scanner.Err(); err != nil {
 		quit <- err

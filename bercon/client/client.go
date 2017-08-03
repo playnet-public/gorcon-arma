@@ -10,7 +10,7 @@ import (
 
 	raven "github.com/getsentry/raven-go"
 	"github.com/golang/glog"
-	"github.com/playnet-public/gorcon-arma/bercon/common"
+	"github.com/playnet-public/gorcon-arma/common"
 	"github.com/playnet-public/gorcon-arma/rcon"
 )
 
@@ -30,7 +30,7 @@ func New(con rcon.Connection, cred rcon.Credentials) *Client {
 }
 
 //Connect opens a new Connection to the Server
-func (c *Client) Connect() error {
+func (c *Client) Connect(q chan error) error {
 	var err error
 	c.con, err = net.DialUDP("udp", nil, c.cfg.Addr)
 	if err != nil {
@@ -43,7 +43,7 @@ func (c *Client) Connect() error {
 
 	glog.V(2).Infoln("Sending Login Information")
 	c.con.SetReadDeadline(time.Now().Add(time.Second * 2))
-	c.con.Write(common.BuildLoginPacket(c.cred.Password))
+	c.con.Write(BuildLoginPacket(c.cred.Password))
 	n, err := c.con.Read(buffer)
 	if err, ok := err.(net.Error); ok && err.Timeout() {
 		c.con.Close()
@@ -54,12 +54,12 @@ func (c *Client) Connect() error {
 		return err
 	}
 
-	response, err := common.VerifyLogin(buffer[:n])
+	response, err := VerifyLogin(buffer[:n])
 	if err != nil {
 		c.con.Close()
 		return err
 	}
-	if response == common.PacketResponse.LoginFail {
+	if response == PacketResponse.LoginFail {
 		glog.Errorln("Non Login Packet Received:", response)
 		c.con.Close()
 		return common.ErrInvalidLogin
@@ -74,56 +74,45 @@ func (c *Client) Connect() error {
 		c.cmdLock.Lock()
 		c.cmdMap = make(map[byte]transmission)
 		c.cmdLock.Unlock()
-
-		go c.WatcherLoop()
+		q <- common.ErrConnected
 	}
 	return nil
 }
 
-//WatcherLoop is responsible for creating and keeping working connections
-func (c *Client) WatcherLoop() (err error) {
-	writerDisconnect := make(chan int)
-	readerDisconnect := make(chan int)
-	// Start Loops only if initial connection is up
-	if c.init {
-		go c.writerLoop(writerDisconnect, c.cmdChan)
-		go c.readerLoop(readerDisconnect)
+func (c *Client) loop() (err error) {
+	wd := make(chan error)
+	rd := make(chan error)
+
+	go c.writerLoop(wd, c.cmdChan)
+	go c.readerLoop(rd)
+	select {
+	case d := <-rd:
+		c.looping = false
+		glog.V(2).Infoln("reader exited with error:", d)
+		return d
+	case d := <-wd:
+		c.looping = false
+		glog.V(2).Infoln("writer exited with error:", d)
+		return d
 	}
-	for {
-		glog.V(10).Infoln("Looping in WatcherLoop")
-		if !c.looping {
-			if err := c.Connect(); err != nil {
-				glog.V(2).Info(err)
-				//TODO: Add Reconnect Time Setting
-				time.Sleep(time.Second * 3)
+}
+
+//Loop for the client to remain active and process events
+func (c *Client) Loop(q chan error) error {
+	go func() {
+		for {
+			if !c.looping || !c.init {
+				if err := c.Connect(q); err != nil {
+					glog.V(2).Info(err)
+					//TODO: Add Reconnect Time Setting
+					time.Sleep(time.Second * 3)
+				}
 				continue
 			}
-			return
+			q <- c.loop()
 		}
-		select {
-		case d := <-readerDisconnect:
-			c.looping = false
-			glog.V(2).Infoln("Reader disconnected, waiting for Writer")
-			_ = <-writerDisconnect
-			glog.V(2).Infoln("Writer disconnected")
-			glog.Warningf("Trying to recover from broken Connection (close msg: %v)", d)
-			if err := c.Connect(); err == nil {
-				return err
-			}
-		case d := <-writerDisconnect:
-			c.looping = false
-			glog.V(2).Infoln("Writer disconnected, waiting for Reader")
-			_ = <-readerDisconnect
-			glog.V(2).Infoln("Reader disconnected")
-			glog.Warningf("Trying to recover from broken Connection (close msg: %v)", d)
-			if err := c.Connect(); err == nil {
-				return err
-			}
-			//TODO: Evaluate it this is required
-			//default:
-			//	continue
-		}
-	}
+	}()
+	return nil
 }
 
 //Disconnect the Client

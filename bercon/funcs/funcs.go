@@ -76,6 +76,34 @@ func (f RconFuncs) GetBans() ([]*rcon.Ban, error) {
 func (f RconFuncs) Ban(p *rcon.Player, duration int64, reason string) error {
 	cmd := fmt.Sprintf("addBan %s %d %s", p.ExtID, duration, reason)
 	glog.V(3).Infoln("Sending RCon Command:", cmd)
+	err := f.Client.Exec([]byte(cmd), os.Stdout)
+	if err != nil {
+		return err
+	}
+	cmd = fmt.Sprintf("loadBans")
+	glog.V(3).Infoln("Sending RCon Command:", cmd)
+	return f.Client.Exec([]byte(cmd), os.Stdout)
+}
+
+//MultiBan adds the array of Bans to the Server and does a reload
+func (f RconFuncs) MultiBan(bans []*rcon.Ban) error {
+	for _, ban := range bans {
+		var duration int64
+		if ban.Ends.IsZero() {
+			duration = 10
+		} else {
+			dur := time.Until(ban.Ends)
+			duration = int64(dur.Minutes())
+		}
+		cmd := fmt.Sprintf("addBan %s %d %s", ban.Descriptor, duration, ban.Reason)
+		glog.V(3).Infoln("Sending RCon Command:", cmd)
+		err := f.Client.Exec([]byte(cmd), os.Stdout)
+		if err != nil {
+			return err
+		}
+	}
+	cmd := fmt.Sprintf("loadBans")
+	glog.V(3).Infoln("Sending RCon Command:", cmd)
 	return f.Client.Exec([]byte(cmd), os.Stdout)
 }
 
@@ -111,16 +139,17 @@ func (f RconFuncs) ParsePlayerEvent(s string) (p *rcon.Player, e rcon.PlayerEven
 		e.Type = 1
 	case "Verified":
 		e.Type = 2
+	case "RCon":
+		e.Type = 7
 	default:
 		err = fmt.Errorf("could not determine event type for %v", s)
-		glog.Errorln(err)
 		raven.CaptureError(err, map[string]string{"app": "rcon", "module": "funcs"})
 		return
 	}
 
 	pid := -1
 	pidM := RegEx.PlayerID.FindStringSubmatch(s)
-	glog.Infof("%v - %v", pidM, s)
+	glog.V(3).Infof("%v - %v", pidM, s)
 	if len(pidM) > 1 {
 		pid, err = strconv.Atoi(pidM[1])
 		if err == nil {
@@ -128,7 +157,7 @@ func (f RconFuncs) ParsePlayerEvent(s string) (p *rcon.Player, e rcon.PlayerEven
 		}
 	}
 	guidM := RegEx.GUID.FindStringSubmatch(s)
-	glog.Infof("%v - %v", guidM, s)
+	glog.V(3).Infof("%v - %v", guidM, s)
 	if len(guidM) > 1 {
 		p.ExtID = guidM[1]
 	}
@@ -149,7 +178,7 @@ func (f RconFuncs) ParsePlayerEvent(s string) (p *rcon.Player, e rcon.PlayerEven
 		}
 	}
 	netInf := RegEx.NetInf.FindString(s)
-	glog.Infof("%v - %v", netInf, s)
+	glog.V(3).Infof("%v - %v", netInf, s)
 	netInfA := strings.Split(netInf, ":")
 	if len(netInfA) > 1 {
 		p.IP = net.ParseIP(netInfA[0])

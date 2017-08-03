@@ -7,19 +7,22 @@ import (
 
 	raven "github.com/getsentry/raven-go"
 	"github.com/golang/glog"
-	"github.com/playnet-public/gorcon-arma/bercon/common"
+	"github.com/playnet-public/gorcon-arma/common"
 )
 
-func (c *Client) readerLoop(disc chan int) {
-	defer func(disc chan int) { disc <- 2 }(disc)
+func (c *Client) readerLoop(ret chan error) {
+	var err error
+	defer func() { ret <- err }()
 	for {
 		glog.V(10).Infoln("Looping in readerLoop")
 		if !c.looping {
-			glog.V(4).Infoln("ReaderLoop ended by watcher. Exiting.")
+			glog.V(4).Infoln("ReaderLoop ended externally. Exiting.")
+			//TODO: Should we place some error return here?
 			return
 		}
 		if c.con == nil {
 			glog.Errorln(common.ErrConnectionNil)
+			err = common.ErrConnectionNil
 			return
 		}
 
@@ -50,19 +53,19 @@ func (c *Client) readerLoop(disc chan int) {
 }
 
 func (c *Client) handlePacket(packet []byte) error {
-	seq, data, pType, err := common.VerifyPacket(packet)
+	seq, data, pType, err := VerifyPacket(packet)
 	if err != nil {
 		glog.Errorln(err)
 		return err
 	}
 
 	// Handle Packet Types
-	if pType == common.PacketType.ServerMessage {
+	if pType == PacketType.ServerMessage {
 		glog.V(3).Infof("ServerMessage Packet: %v - Sequence: %v", string(data), seq)
 		c.handleServerMessage(append(data[3:], []byte("\n")...))
 		if c.con != nil {
 			c.con.SetWriteDeadline(time.Now().Add(time.Millisecond * 100))
-			_, err := c.con.Write(common.BuildMsgAckPacket(seq))
+			_, err := c.con.Write(BuildMsgAckPacket(seq))
 			if err != nil {
 				glog.Error(err)
 				return err
@@ -71,13 +74,13 @@ func (c *Client) handlePacket(packet []byte) error {
 		return nil
 	}
 
-	if pType != common.PacketType.Command && pType != common.PacketType.MultiCommand {
+	if pType != PacketType.Command && pType != PacketType.MultiCommand {
 		glog.V(2).Infof("Packet: %v - PacketType: %v", string(packet), pType)
 		raven.CaptureError(common.ErrUnknownPacketType, map[string]string{"packetType": string(pType), "app": "rcon", "module": "reader"})
 		return common.ErrUnknownPacketType
 	}
 
-	packetCount, currentPacket, isMultiPacket := common.CheckMultiPacketResponse(data)
+	packetCount, currentPacket, isMultiPacket := CheckMultiPacketResponse(data)
 	glog.V(3).Infof("Packet: %v - Sequence: %v - IsMulti: %v", string(data), seq, isMultiPacket)
 	if !isMultiPacket {
 		c.handleResponse(seq, data[3:], true)

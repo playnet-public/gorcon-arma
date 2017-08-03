@@ -1,9 +1,10 @@
-package common
+package client
 
 import (
 	"fmt"
 
 	raven "github.com/getsentry/raven-go"
+	"github.com/playnet-public/gorcon-arma/common"
 )
 
 //BuildPacket creates a new packet with data and type
@@ -48,7 +49,7 @@ func VerifyPacket(packet []byte) (seq byte, data []byte, pckType byte, err error
 	}
 	match := verifyChecksum(packet[6:], checksum)
 	if !match {
-		err = ErrInvalidChecksum
+		err = common.ErrInvalidChecksum
 		return
 	}
 	seq, err = GetSequence(packet)
@@ -72,10 +73,10 @@ func VerifyLogin(packet []byte) (b byte, err error) {
 		}
 	}()
 	if len(packet) != 9 {
-		err = ErrInvalidLoginPacket
+		err = common.ErrInvalidLoginPacket
 	}
 	if match, err := verifyChecksumMatch(packet); match == false || err != nil {
-		err = ErrInvalidChecksum
+		err = common.ErrInvalidChecksum
 	}
 
 	return packet[8], nil

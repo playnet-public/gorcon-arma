@@ -31,4 +31,6 @@ var (
 	ErrInvalidHeaderEnd = errors.New("Invalid Packet Header end")
 	//ErrInvalidSize .
 	ErrInvalidSize = errors.New("Packet size too")
+	//ErrConnected is not really an error but a information state
+	ErrConnected = errors.New("Client Connected")
 )

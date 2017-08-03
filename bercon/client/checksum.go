@@ -1,4 +1,4 @@
-package common
+package client
 
 import (
 	"fmt"
@@ -6,6 +6,7 @@ import (
 
 	raven "github.com/getsentry/raven-go"
 	"github.com/golang/glog"
+	"github.com/playnet-public/gorcon-arma/common"
 )
 
 func makeChecksum(data []byte) uint32 {
@@ -21,15 +22,15 @@ func getChecksum(data []byte) (c uint32, err error) {
 	}()
 
 	if len(data) < 7 {
-		err = ErrInvalidHeaderSize
+		err = common.ErrInvalidHeaderSize
 		return
 	}
 	if data[0] != 'B' || data[1] != 'E' {
-		err = ErrInvalidHeaderSyntax
+		err = common.ErrInvalidHeaderSyntax
 		return
 	}
 	if data[6] != 0xFF {
-		err = ErrInvalidHeaderEnd
+		err = common.ErrInvalidHeaderEnd
 		return
 	}
 	c = uint32(data[2]) | uint32(data[3])<<8 | uint32(data[4])<<16 | uint32(data[5])<<24

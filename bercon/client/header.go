@@ -1,9 +1,10 @@
-package common
+package client
 
 import (
 	"encoding/binary"
 
 	raven "github.com/getsentry/raven-go"
+	"github.com/playnet-public/gorcon-arma/common"
 )
 
 func buildHeader(checksum uint32) []byte {
@@ -14,8 +15,8 @@ func buildHeader(checksum uint32) []byte {
 
 func stripHeader(data []byte) ([]byte, error) {
 	if len(data) < 7 {
-		raven.CaptureError(ErrInvalidSizeNoHeader, nil)
-		return []byte{}, ErrInvalidSizeNoHeader
+		raven.CaptureError(common.ErrInvalidSizeNoHeader, nil)
+		return []byte{}, common.ErrInvalidSizeNoHeader
 	}
 	return data[6:], nil
 }
