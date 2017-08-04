@@ -17,6 +17,7 @@ type Funcs interface {
 	GetPlayers() ([]*Player, error)
 	GetBans() ([]*Ban, error)
 	Ban(p *Player, duration int64, reason string) error
+	MultiBan(bans []*Ban) error
 	Kick(p *Player, reason string) error
 	Message(p *Player, msg string) error
 	ParsePlayerEvent(s string) (p *Player, e PlayerEvent, err error)
@@ -48,6 +49,8 @@ type Players struct {
 }
 
 //Add Player to Players
+//WARN: This function seems to cause panics on empty Players Array
+//TODO: Check this function for usablility (and need)
 func (p *Players) Add(player *Player) {
 	p.Lock()
 	defer p.Unlock()
@@ -55,6 +58,13 @@ func (p *Players) Add(player *Player) {
 		glog.Warningf("Player already exists on index %v: %v - Overwriting with %v", player.ID, pl, player)
 	}
 	p.p[player.ID] = player
+}
+
+//Append to Players
+func (p *Players) Append(player *Player) {
+	p.Lock()
+	defer p.Unlock()
+	p.p = append(p.p, player)
 }
 
 //Remove Player from Players
@@ -148,6 +158,7 @@ func (p *Player) AddEvent(e PlayerEvent) {
 }
 
 //Listen to the passed in writer for PlayerEvents
+//TODO: Refactor this function to be less dirty
 func (pm *PlayerManager) Listen(r io.Reader, errc chan error) {
 	go func() {
 		sc := bufio.NewScanner(r)
@@ -155,11 +166,21 @@ func (pm *PlayerManager) Listen(r io.Reader, errc chan error) {
 			pl, ev, err := pm.Funcs.ParsePlayerEvent(sc.Text())
 			if err != nil {
 				//errc <- err
+				//glog.Errorln(err)
 				raven.CaptureErrorAndWait(err, map[string]string{"app": "rcon", "module": "events"})
-			}
-			if isBanned, ban := pm.BanManager.Check(pl.ExtID); isBanned {
-				pm.Funcs.Kick(pl, ban.Reason)
 				continue
+			}
+			if ev.Type == 1 {
+				fmt.Println("triggering ban check due to event", sc.Text())
+				if isBanned, ban := pm.BanManager.Check(pl.ExtID); isBanned {
+					//TODO: This approach will solve a problem with ArmA and Ban (with reload) while a kick might be best
+					//Either find a better solution here or wrap this correctly to remain generic
+					//If we stay with time banning, it might be good to add a config value for the time to ban (ban retention)
+					pm.Funcs.Ban(pl, 10, ban.Reason)
+					continue
+				}
+			} else {
+				//glog.Warningln("Player Event without ExtID was skipped", sc.Text())
 			}
 			pl.AddEvent(ev)
 			if ev.Type == 2 {
@@ -168,7 +189,6 @@ func (pm *PlayerManager) Listen(r io.Reader, errc chan error) {
 					pm.Funcs.Message(pl, "GoRcon check completed. BanStatus: OK!")
 					pm.Funcs.Message(pl, fmt.Sprintf("Welcome %s", pl.Name))
 				}()
-				pm.AddPlayer(pl)
 			}
 		}
 		if err := sc.Err(); err != nil {
@@ -178,4 +198,21 @@ func (pm *PlayerManager) Listen(r io.Reader, errc chan error) {
 			return
 		}
 	}()
+}
+
+//CheckPlayers requests an up-to-date PlayerList and checks all players against the BanManager
+func (pm *PlayerManager) CheckPlayers() error {
+	glog.V(2).Infoln("Checking all Players")
+	players, err := pm.Funcs.GetPlayers()
+	var bans []*Ban
+	if err != nil {
+		return err
+	}
+	for _, p := range players {
+		is, ban := pm.BanManager.Check(p.ExtID)
+		if is {
+			bans = append(bans, &Ban{Descriptor: p.ExtID, Reason: ban.Reason})
+		}
+	}
+	return pm.Funcs.MultiBan(bans)
 }

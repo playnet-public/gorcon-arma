@@ -19,7 +19,7 @@ type Connection struct {
 	ReconnectTimeout   int
 }
 
-type connect func() error
+type connect func(q chan error) error
 type disconnect func() error
 type exec func(cmd []byte, resp io.WriteCloser) error
 type attachEvents func(w io.Writer) error

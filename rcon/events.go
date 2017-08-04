@@ -41,6 +41,7 @@ var PlayerEventTypes = struct {
 	Chat       PlayerEventType
 	Kick       PlayerEventType
 	Ban        PlayerEventType
+	Rcon       PlayerEventType
 }{
 	Connect:    0,
 	Check:      1,
@@ -49,6 +50,7 @@ var PlayerEventTypes = struct {
 	Chat:       4,
 	Kick:       5,
 	Ban:        6,
+	Rcon:       7,
 }
 
 //PlayerEvent describes events that can be linked to a player

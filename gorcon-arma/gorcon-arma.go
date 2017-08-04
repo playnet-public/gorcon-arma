@@ -117,7 +117,8 @@ func do() (err error) {
 	}
 
 	if useRcon {
-		client, err = newRcon()
+		rconQ := make(chan error, 100)
+		client, err = newRcon(rconQ)
 		if err != nil {
 			return
 		}
@@ -125,24 +126,29 @@ func do() (err error) {
 		rconFuncs := funcs.New(client)
 
 		bm := newBanManager()
-
-		demoBan := &rcon.Ban{
-			Descriptor: "a69feed9123832b560f7d8b073eebf477",
-			Reason:     "GoRcon Works!",
-		}
-
-		bm.AddBan(demoBan)
+		bm.AddCheck(bm.CheckLocal)
+		//bm.AddCheck(testCheck)
 
 		eventReader, eventWriter := io.Pipe()
 		pm := newPlayerManager(*rconFuncs, bm)
 
 		pm.Listen(eventReader, quit)
 
+		go func() {
+			for e := range rconQ {
+				//Once the RCon Client finishes a reconnect, we check all Players for Bans and clean them up
+				if e == common.ErrConnected {
+					pm.CheckPlayers()
+				}
+				glog.V(2).Infoln("RCon Channel Return:", e)
+			}
+		}()
+
 		//Take care of the writers passed here!
 		//Writers other than os.Std* will always be closed after execution
 		client.Exec([]byte("say -1 PlayNet GoRcon-ArmA Connected"), os.Stdout)
 
-		client.AttachChat(io.MultiWriter(eventWriter, stdout))
+		//client.AttachChat(io.MultiWriter(eventWriter, stdout))
 		client.AttachEvents(io.MultiWriter(eventWriter, stdout))
 
 		if useSched {
@@ -163,7 +169,25 @@ func do() (err error) {
 	return q
 }
 
-func newRcon() (*rcon.Client, error) {
+func testCheck(desc string) (status bool, ban *rcon.Ban) {
+	//glog.Infoln("Running testCheck for", desc)
+	switch desc {
+	case "69feed9123832b560f7d8b073eebf477":
+		ban = &rcon.Ban{
+			Descriptor: "69feed9123832b560f7d8b073eebf477",
+			Reason:     "Some external test Ban",
+		}
+		status = true
+	default:
+		ban = nil
+		status = false
+	}
+	//glog.Infoln("Sleeping before ban return")
+	time.Sleep(time.Second * 10)
+	return status, ban
+}
+
+func newRcon(q chan error) (*rcon.Client, error) {
 	beIP := cfg.GetString("arma.ip")
 	bePort := cfg.GetString("arma.port")
 	bePassword := cfg.GetString("arma.password")
@@ -187,14 +211,14 @@ func newRcon() (*rcon.Client, error) {
 	}
 	beCl := bercon.New(beCon, beCred)
 	rc := rcon.NewClient(
-		beCl.WatcherLoop,
+		beCl.Loop,
 		beCl.Disconnect,
 		beCl.Exec,
 		beCl.AttachEvents,
 		beCl.AttachChat,
 	)
 	glog.Infoln("Establishing Connection to Server")
-	err = rc.Connect()
+	err = rc.Connect(q)
 	if err != nil {
 		return nil, err
 	}

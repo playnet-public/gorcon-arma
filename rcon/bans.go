@@ -11,7 +11,8 @@ import (
 
 //BanManager is responsible for handling Bans and their actions
 type BanManager struct {
-	Bans Bans
+	Bans   Bans
+	Checks []CheckFunc
 }
 
 //Ban represents an abstract rcon ban
@@ -29,6 +30,9 @@ type Bans struct {
 	m map[string]*Ban
 	sync.RWMutex
 }
+
+//CheckFunc defines the function interface used when passing in external check functions
+type CheckFunc func(desc string) (bool, *Ban)
 
 //Add Ban to Bans
 func (b *Bans) Add(ban *Ban) {
@@ -85,6 +89,11 @@ func NewBanManager() *BanManager {
 	return bm
 }
 
+//AddCheck to the given BanManager
+func (bm *BanManager) AddCheck(check CheckFunc) {
+	bm.Checks = append(bm.Checks, check)
+}
+
 //LoadBans from File at path
 func (bm *BanManager) LoadBans(path string) {
 	return
@@ -125,15 +134,50 @@ func (bm *BanManager) RemoveBan(desc string) error {
 	return nil
 }
 
-//Check desc for a ban
-func (bm *BanManager) Check(desc string) (status bool, ban *Ban) {
+//CheckLocal checks the passed in desc against the local BanManager Bans
+func (bm *BanManager) CheckLocal(desc string) (status bool, ban *Ban) {
 	bm.Bans.RLock()
 	defer bm.Bans.RUnlock()
-	ban, ok := bm.Bans.m[desc]
-	if !ok {
-		status = false
-		return
+	b, is := bm.Bans.m[desc]
+	return is, b
+}
+
+//Check desc for a ban while starting every check as a single go routine to maintain non blocking behaviour
+func (bm *BanManager) Check(desc string) (status bool, ban *Ban) {
+	if len(desc) < 5 {
+		glog.Errorln("invalid CheckDesc", desc)
+		return false, nil
 	}
-	status = true
-	return
+	if len(bm.Checks) < 1 {
+		glog.Warningln("no ban checks defined")
+		return false, nil
+	}
+	glog.V(2).Infoln("checking Player Descriptor", desc)
+	bans := make(chan *Ban, len(bm.Checks))
+	wg := sync.WaitGroup{}
+	wg.Add(len(bm.Checks))
+	glog.V(3).Infof("starting %d checkFuncs", len(bm.Checks))
+	for _, f := range bm.Checks {
+		go func(f CheckFunc) {
+			is, b := f(desc)
+			if is {
+				bans <- b
+			}
+			wg.Done()
+		}(f)
+	}
+
+	go func() {
+		wg.Wait()
+		close(bans)
+	}()
+
+	for ban = range bans {
+		//glog.V(2).Infoln("handling ban check result", ban)
+		if ban != nil {
+			return true, ban
+		}
+	}
+	glog.V(2).Infof("ban check without result, player(%v) OK", desc)
+	return false, nil
 }
