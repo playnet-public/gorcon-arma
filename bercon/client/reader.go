@@ -118,6 +118,8 @@ func (c *Client) handleServerMessage(data []byte) {
 		}
 	}
 	if c.eventWriter.Writer != nil {
+		timestamp := append([]byte(time.Now().Format("R0102 15:04:05.000000")), []byte("] ")...)
+		data = append([]byte(timestamp), data...)
 		c.eventWriter.Lock()
 		_, err := c.eventWriter.Write(data)
 		if err != nil {
