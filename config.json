@@ -20,13 +20,13 @@
         "dir": "",
         "params": [
             "-name=goTest",
-            "-port-2303"
+            "-port=2303"
         ],
         "logToFile": true,
         "logFolder": "logs",
-        "logToConsole": false
+        "logToConsole": true
     },
     "playnet": {
-        "sentry": "https://0bd0f0e0339141e68bf10c0c53b5abb8:a737e67c7804498488861da0fa4df5e4@sentry.play-net.org/2"
+        "sentry": "https://0f7e781a17ed4ad790655aad9852ee0d:760a655d71814fedb85b67cd4ebb722e@sentry.play-net.org/2"
     }
 }

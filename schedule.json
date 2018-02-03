@@ -1,46 +1,11 @@
 {
     "schedule": [
         {
-            "type": "log",
-            "command": "Just logging here",
-            "day": "*",
-            "hour": "*",
-            "minute": "*/1"
-        },
-        {
-            "type": "events",
-            "command": "get",
-            "day": "*",
-            "hour": "*",
-            "minute": "*/1"
-        },
-        {
-            "type": "messages",
-            "command": "get",
-            "day": "*",
-            "hour": "*",
-            "minute": "*/1"
-        },
-        {
-            "type": "bash",
-            "command": "git status",
-            "day": "*",
-            "hour": "*",
-            "minute": "*/1"
-        },
-        {
             "type": "rcon",
             "command": "say -1 Oh see how GoRcon rocks O.o",
             "day": "*",
             "hour": "*",
             "minute": "*/1"
-        },
-        {
-            "type": "watcher",
-            "command": "restart",
-            "day": "*",
-            "hour": "*",
-            "minute": "16"
         },
         {
             "type": "scheduler",
@@ -51,4 +16,3 @@
         }
     ]
 }
-
