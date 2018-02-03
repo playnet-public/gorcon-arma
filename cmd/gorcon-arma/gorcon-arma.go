@@ -12,12 +12,12 @@ import (
 
 	raven "github.com/getsentry/raven-go"
 	"github.com/kolide/kit/version"
-	bercon "github.com/playnet-public/gorcon-arma/bercon/client"
-	"github.com/playnet-public/gorcon-arma/bercon/funcs"
-	"github.com/playnet-public/gorcon-arma/common"
-	"github.com/playnet-public/gorcon-arma/rcon"
-	"github.com/playnet-public/gorcon-arma/scheduler"
-	"github.com/playnet-public/gorcon-arma/watcher"
+	bercon "github.com/playnet-public/gorcon-arma/pkg/bercon/client"
+	"github.com/playnet-public/gorcon-arma/pkg/bercon/funcs"
+	"github.com/playnet-public/gorcon-arma/pkg/common"
+	"github.com/playnet-public/gorcon-arma/pkg/rcon"
+	"github.com/playnet-public/gorcon-arma/pkg/scheduler"
+	"github.com/playnet-public/gorcon-arma/pkg/watcher"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
@@ -88,7 +88,7 @@ func do() (err error) {
 	if !*devBuildPtr {
 		raven.SetDSN(cfg.GetString("playnet.sentry"))
 		raven.SetIncludePaths([]string{
-			"github.com/playnet-public/gorcon-arma/",
+			"github.com/playnet-public/gorcon-arma/pkg/",
 		})
 		raven.SetRelease(version.Version().Version)
 	}
