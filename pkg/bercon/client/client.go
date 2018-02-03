@@ -68,6 +68,7 @@ func (c *Client) Connect(q chan error) error {
 	if !c.looping {
 		c.looping = true
 		c.init = true
+		c.exit = false
 		c.sequence.s = 0
 		c.keepAliveCount = 0
 		c.pingbackCount = 0
@@ -102,6 +103,9 @@ func (c *Client) Loop(q chan error) error {
 	go func() {
 		for {
 			if !c.looping || !c.init {
+				if c.exit == true {
+					return
+				}
 				if err := c.Connect(q); err != nil {
 					glog.V(2).Info(err)
 					//TODO: Add Reconnect Time Setting
@@ -117,6 +121,7 @@ func (c *Client) Loop(q chan error) error {
 
 //Disconnect the Client
 func (c *Client) Disconnect() error {
+	c.exit = true
 	return c.con.Close()
 }
 

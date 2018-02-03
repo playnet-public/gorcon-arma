@@ -27,6 +27,7 @@ type Client struct {
 	con  *net.UDPConn
 
 	init       bool
+	exit       bool
 	readBuffer []byte
 	cmdChan    chan transmission
 	looping    bool
