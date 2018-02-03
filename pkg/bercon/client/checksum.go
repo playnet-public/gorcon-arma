@@ -38,7 +38,12 @@ func getChecksum(data []byte) (c uint32, err error) {
 }
 
 func verifyChecksum(data []byte, checksum uint32) bool {
-	return crc32.ChecksumIEEE(data) == checksum
+	sum := crc32.ChecksumIEEE(data)
+	if sum != checksum {
+		glog.Errorf("verifyChecksum(%v): expected %v got %v", data, sum, checksum)
+		return false
+	}
+	return true
 }
 
 func verifyChecksumMatch(data []byte) (b bool, err error) {
@@ -51,12 +56,12 @@ func verifyChecksumMatch(data []byte) (b bool, err error) {
 	checksum, err := getChecksum(data)
 	if err != nil {
 		glog.Errorln("verifyChecksumMatch: failed to get checksum")
-		return
+		return false, err
 	}
 	match := verifyChecksum(data[6:], checksum)
 	if !match {
 		glog.Errorln("verifyChecksumMatch: failed at checksum match")
-		return
+		return false, common.ErrInvalidChecksum
 	}
 	return true, nil
 }
