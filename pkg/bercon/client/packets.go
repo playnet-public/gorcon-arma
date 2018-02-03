@@ -74,9 +74,11 @@ func VerifyLogin(packet []byte) (b byte, err error) {
 	}()
 	if len(packet) != 9 {
 		err = common.ErrInvalidLoginPacket
+		return b, err
 	}
-	if match, err := verifyChecksumMatch(packet); match == false || err != nil {
-		err = common.ErrInvalidChecksum
+	var match bool
+	if match, err = verifyChecksumMatch(packet); match == false || err != nil {
+		return b, err
 	}
 
 	return packet[8], nil

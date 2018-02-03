@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"hash/crc32"
 	"testing"
-
-	"github.com/golang/glog"
 )
 
 func Test_getChecksum(t *testing.T) {
@@ -137,8 +135,6 @@ func Test_verifyChecksumMatch(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		pck := BuildCmdPacket([]byte("testcmd"), 0)
-		glog.Errorln(pck)
 		t.Run(tt.name, func(t *testing.T) {
 			gotB, err := verifyChecksumMatch(tt.data)
 			if (err != nil) != tt.wantErr {

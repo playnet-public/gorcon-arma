@@ -1,6 +1,8 @@
 package client
 
-import "testing"
+import (
+	"testing"
+)
 
 func Test_getSequence(t *testing.T) {
 	var tests = []struct {
@@ -50,5 +52,51 @@ func Test_responseType(t *testing.T) {
 		if result != v.expected {
 			t.Error("Expected:", v.expected, "Got:", result)
 		}
+	}
+}
+
+func TestVerifyLogin(t *testing.T) {
+	tests := []struct {
+		name    string
+		packet  []byte
+		wantB   byte
+		wantErr bool
+	}{
+		{
+			"ok",
+			[]byte{66, 69, 40, 236, 197, 47, 255, 1, 0x01},
+			PacketResponse.LoginOk,
+			false,
+		},
+		{
+			"fail",
+			[]byte{66, 69, 190, 220, 194, 88, 255, 1, 0x00},
+			PacketResponse.LoginFail,
+			false,
+		},
+		{
+			"error",
+			[]byte{0, 69, 49, 0, 26, 11, 255, 1, 0, 116, 101, 115, 99, 109, 100},
+			0,
+			true,
+		},
+		{
+			"checksum_error",
+			[]byte{66, 69, 0, 220, 194, 88, 255, 1, 0x00},
+			0,
+			true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotB, err := VerifyLogin(tt.packet)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("VerifyLogin() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if gotB != tt.wantB {
+				t.Errorf("VerifyLogin() = %v, want %v", gotB, tt.wantB)
+			}
+		})
 	}
 }
