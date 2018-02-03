@@ -11,12 +11,15 @@ import (
 	"time"
 
 	raven "github.com/getsentry/raven-go"
+	"github.com/kolide/kit/version"
 	bercon "github.com/playnet-public/gorcon-arma/bercon/client"
 	"github.com/playnet-public/gorcon-arma/bercon/funcs"
 	"github.com/playnet-public/gorcon-arma/common"
 	"github.com/playnet-public/gorcon-arma/rcon"
 	"github.com/playnet-public/gorcon-arma/scheduler"
 	"github.com/playnet-public/gorcon-arma/watcher"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 
 	"strings"
 
@@ -27,6 +30,8 @@ import (
 )
 
 const (
+	app                 = "PlayNet GoRcon-ArmA - OpenSource Server Manager"
+	appKey              = "gorcon-arma"
 	parameterMaxprocs   = "maxprocs"
 	parameterConfigPath = "configPath"
 	parameterDevBuild   = "devbuild"
@@ -36,25 +41,38 @@ var (
 	maxprocsPtr   = flag.Int(parameterMaxprocs, runtime.NumCPU(), "max go procs")
 	configPathPtr = flag.String(parameterConfigPath, ".", "config parent folder")
 	devBuildPtr   = flag.Bool(parameterDevBuild, false, "set dev build mode")
+	versionPtr    = flag.Bool("version", true, "show or hide version info")
+	dbgPtr        = flag.Bool("debug", false, "debug printing")
 )
 
 var cfg *viper.Viper
 
 func main() {
+	flag.Parse()
+
+	if *versionPtr {
+		fmt.Printf("-- PlayNet %s --\n", app)
+		version.PrintFull()
+	}
+	runtime.GOMAXPROCS(*maxprocsPtr)
+
+	// prepare glog
 	defer glog.Flush()
 	glog.CopyStandardLogTo("info")
-	flag.Parse()
-	fmt.Println("-- PlayNet GoRcon-ArmA - OpenSource Server Manager --")
-	fmt.Println("Version:", version)
-	fmt.Println("SourceCode: http://bit.ly/gorcon-code")
-	fmt.Println("Tasks: http://bit.ly/gorcon-issues")
-	fmt.Println("")
-	fmt.Println("This project is work in progress - Use at your own risk")
-	fmt.Println("--")
-	fmt.Println("OS:", runtime.GOOS)
-	fmt.Printf("Using %d go procs\n", *maxprocsPtr)
-	fmt.Println("")
-	runtime.GOMAXPROCS(*maxprocsPtr)
+
+	var zapFields []zapcore.Field
+	// hide app and version information when debugging
+	if !*dbgPtr {
+		zapFields = []zapcore.Field{
+			zap.String("app", appKey),
+			zap.String("version", version.Version().Version),
+		}
+	}
+
+	// prepare zap logging
+	log := newLogger(*dbgPtr).With(zapFields...)
+	defer log.Sync()
+	log.Info("preparing")
 
 	raven.CapturePanicAndWait(func() {
 		if err := do(); err != nil {
@@ -72,7 +90,7 @@ func do() (err error) {
 		raven.SetIncludePaths([]string{
 			"github.com/playnet-public/gorcon-arma/",
 		})
-		//raven.SetRelease(version)
+		raven.SetRelease(version.Version().Version)
 	}
 
 	useSched := cfg.GetBool("scheduler.enabled")
@@ -322,4 +340,35 @@ func getConfig() *viper.Viper {
 		panic(message)
 	}
 	return cfg
+}
+
+//TODO: Move this to playnet common libs
+func newLogger(dbg bool) *zap.Logger {
+	highPriority := zap.LevelEnablerFunc(func(lvl zapcore.Level) bool {
+		return lvl >= zapcore.ErrorLevel
+	})
+	lowPriority := zap.LevelEnablerFunc(func(lvl zapcore.Level) bool {
+		return lvl < zapcore.ErrorLevel
+	})
+
+	consoleDebugging := zapcore.Lock(os.Stdout)
+	consoleErrors := zapcore.Lock(os.Stderr)
+	consoleConfig := zap.NewDevelopmentEncoderConfig()
+	consoleEncoder := zapcore.NewConsoleEncoder(consoleConfig)
+	core := zapcore.NewTee(
+		zapcore.NewCore(consoleEncoder, consoleErrors, highPriority),
+		zapcore.NewCore(consoleEncoder, consoleDebugging, lowPriority),
+	)
+	logger := zap.New(core)
+	if dbg {
+		logger = logger.WithOptions(
+			zap.AddCaller(),
+			zap.AddStacktrace(zap.ErrorLevel),
+		)
+	} else {
+		logger = logger.WithOptions(
+			zap.AddStacktrace(zap.FatalLevel),
+		)
+	}
+	return logger
 }

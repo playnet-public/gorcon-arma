@@ -1,0 +1,25 @@
+
+DOCKER_TAGS := -t $(REGISTRY)/$(IMAGE):$(VERSION) -t $(REGISTRY)/$(IMAGE):latest
+
+KIT_VERSION_DOCKER = "\
+	-X $(GIT_HOST)/$(REPO)/$(NAME)/vendor/github.com/kolide/kit/version.appName=$(APP_NAME) \
+	-X $(GIT_HOST)/$(REPO)/$(NAME)/vendor/github.com/kolide/kit/version.version=$(VERSION) \
+	-X $(GIT_HOST)/$(REPO)/$(NAME)/vendor/github.com/kolide/kit/version.branch=$(BRANCH) \
+	-X $(GIT_HOST)/$(REPO)/$(NAME)/vendor/github.com/kolide/kit/version.revision=$(REVISION) \
+	-X $(GIT_HOST)/$(REPO)/$(NAME)/vendor/github.com/kolide/kit/version.buildDate=$(NOW) \
+	-X $(GIT_HOST)/$(REPO)/$(NAME)/vendor/github.com/kolide/kit/version.buildUser=$(USER) \
+	-X $(GIT_HOST)/$(REPO)/$(NAME)/vendor/github.com/kolide/kit/version.goVersion=$(GOVERSION) \
+	-s"
+
+build-in-docker:
+	@docker build --build-arg GIT_HOST=$(GIT_HOST) --build-arg REPO=$(REPO) --build-arg NAME=$(NAME) --build-arg COMMAND='full build-docker-bin' --no-cache --rm=true -t $(REGISTRY)/$(IMAGE)-build:$(VERSION) -f ./Dockerfile.build .
+	@docker run -t $(REGISTRY)/$(IMAGE)-build:$(VERSION) /bin/true
+	@docker cp `docker ps -q -n=1 -f ancestor=$(REGISTRY)/$(IMAGE)-build:$(VERSION) -f status=exited`:/go/src/$(GIT_HOST)/$(REPO)/$(NAME)/build .
+	@docker rm `docker ps -q -n=1 -f ancestor=$(REGISTRY)/$(IMAGE)-build:$(VERSION) -f status=exited`
+
+dev-in-docker:
+	@docker build --build-arg GIT_HOST=$(GIT_HOST) --build-arg REPO=$(REPO) --build-arg NAME=$(NAME) --build-arg COMMAND='dev' --no-cache --rm=true -t $(REGISTRY)/$(IMAGE)-build:$(VERSION) -f ./Dockerfile.build .
+
+
+build-image:
+	docker build --no-cache --rm=true $(DOCKER_TAGS) --build-arg TOOL=$(TOOL) -f Dockerfile.static .

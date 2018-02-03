@@ -1,0 +1,18 @@
+DB_IMAGE=postgres
+DB_VERSION=9.6
+DB_NAME=db
+
+start-db:
+	docker run \
+	--name $(NAME)-db \
+	--rm \
+	-v $(shell pwd)/db:/var/lib/postgresql/data/pgdata \
+	-e POSTGRESQL_PASSWORD=$(DB_PASSWORD) \
+	-e POSTGRESQL_DB=$(DB_NAME) \
+	-e POSTGRESQL_USER=$(DB_NAME) \
+	-e PGDATA=/var/lib/postgresql/data/pgdata \
+	-p 5432:5432 \
+	$(DB_IMAGE):$(DB_VERSION)
+
+stop-db:
+	docker stop $(NAME)-db

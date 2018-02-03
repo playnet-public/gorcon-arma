@@ -191,6 +191,40 @@ Example Event to restart the Server every day at 12:08am
     "minute": "8"
 }
 ```
+
+## Development
+
+This project is using a [basic template](github.com/playnet-public/gocmd-template) for developing PlayNet command-line tools. Refer to this template for further information and usage docs.
+The Makefile is configurable to some extent by providing variables at the top.
+Any further changes should be thought of carefully as they might brake CI/CD compatibility.
+
+One project might contain multiple tools whose main packages reside under `cmd`. Other packages like libraries go into the `pkg` directory.
+Single projects can be handled by calling `make toolname maketarget` like for example:
+```
+make template dev
+```
+All tools at once can be handled by calling `make full maketarget` like for example:
+```
+make full build
+```
+Build output is being sent to `./build/`.
+
+If you only package one tool this might seam slightly redundant but this is meant to provide consistence over all projects.
+To simplify this, you can simply call `make maketarget` when only one tool is located beneath `cmd`. If there are more than one, this won't do anything (including not return 1) so be careful.
+
+## Dependencies
+This project has a pretty complex Makefile and therefore requires `make`.
+
+Go Version: 1.8
+
+Install all further requirements by running `make deps`
+
+## Contributions
+
+Pull Requests and Issue Reports are welcome.
+If you are interested in contributing, feel free to [get in touch](https://discord.gg/WbrXWJB)
+
+
 ## License
 This project is licensed under the included License (GNU GPLv3).
 We also ask you to keep the projects name and links as they are, to direct possible contributors and users to the original sources.

@@ -1,0 +1,17 @@
+FROM golang:1.8
+
+LABEL maintainer "PlayNet <contact@play-net.org>"
+LABEL type "public"
+LABEL versioning "simple"
+
+ARG GIT_HOST
+ARG REPO
+ARG NAME
+ARG COMMAND
+
+ADD ./ /go/src/${GIT_HOST}/${REPO}/${NAME}
+WORKDIR /go/src/${GIT_HOST}/${REPO}/${NAME}/
+
+RUN make ${COMMAND}
+
+CMD ["/bin/bash"]

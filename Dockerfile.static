@@ -1,0 +1,13 @@
+FROM alpine:3.6
+
+LABEL maintainer "PlayNet <contact@play-net.org>"
+LABEL type "public"
+LABEL versioning "simple"
+
+ARG TOOL
+
+ADD ./build/ /
+COPY ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+
+RUN ln -s ./${TOOL} executable
+ENTRYPOINT ["./executable"]
