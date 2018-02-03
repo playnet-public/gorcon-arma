@@ -43,6 +43,10 @@ func VerifyPacket(packet []byte) (seq byte, data []byte, pckType byte, err error
 			raven.CaptureError(fmt.Errorf("%v - Packet: %v", err, string(data)), map[string]string{"app": "rcon", "module": "packets"})
 		}
 	}()
+	data, err = stripHeader(packet)
+	if err != nil {
+		return
+	}
 	checksum, err := getChecksum(packet)
 	if err != nil {
 		return
@@ -53,10 +57,6 @@ func VerifyPacket(packet []byte) (seq byte, data []byte, pckType byte, err error
 		return
 	}
 	seq, err = GetSequence(packet)
-	if err != nil {
-		return
-	}
-	data, err = stripHeader(packet)
 	if err != nil {
 		return
 	}
