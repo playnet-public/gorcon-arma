@@ -2,6 +2,7 @@ package client
 
 import (
 	"encoding/binary"
+	"reflect"
 	"testing"
 )
 
@@ -22,7 +23,7 @@ func Test_buildHeader(t *testing.T) {
 	}
 }
 
-func Test_stripHeader(t *testing.T) {
+func Test_sstripHeader(t *testing.T) {
 	cmd := "Kick steve"
 	packet := BuildPacket([]byte(cmd), PacketType.Command)
 	result, err := stripHeader(packet)
@@ -31,5 +32,39 @@ func Test_stripHeader(t *testing.T) {
 	}
 	if string(result[2:]) != cmd {
 		t.Fatal("Expected:", cmd, "Got:", string(result))
+	}
+}
+
+func Test_stripHeader(t *testing.T) {
+	tests := []struct {
+		name    string
+		data    []byte
+		want    []byte
+		wantErr bool
+	}{
+		{
+			"ok",
+			[]byte{66, 69, 49, 101, 26, 11, 255, 1, 0, 116, 101, 115, 99, 109, 100},
+			[]byte{255, 1, 0, 116, 101, 115, 99, 109, 100},
+			false,
+		},
+		{
+			"invalid_data",
+			[]byte{66, 69, 49, 101, 26, 11},
+			[]byte{},
+			true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := stripHeader(tt.data)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("stripHeader() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("stripHeader() = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }
