@@ -25,7 +25,7 @@ func New(con rcon.Connection, cred rcon.Credentials) *Client {
 		cred:       cred,
 		readBuffer: make([]byte, 4096),
 		cmdChan:    make(chan transmission),
-		cmdMap:     make(map[byte]transmission),
+		cmdMap:     make(map[uint32]transmission),
 	}
 }
 
@@ -69,11 +69,11 @@ func (c *Client) Connect(q chan error) error {
 		c.looping = true
 		c.init = true
 		c.exit = false
-		c.sequence.s = 0
-		c.keepAliveCount = 0
-		c.pingbackCount = 0
+		atomic.StoreUint32(c.seq, 0)
+		atomic.StoreInt64(c.keepAliveCount, 0)
+		atomic.StoreInt64(c.pingbackCount, 0)
 		c.cmdLock.Lock()
-		c.cmdMap = make(map[byte]transmission)
+		c.cmdMap = make(map[uint32]transmission)
 		c.cmdLock.Unlock()
 		q <- common.ErrConnected
 	}
@@ -86,6 +86,7 @@ func (c *Client) loop() (err error) {
 
 	go c.writerLoop(wd, c.cmdChan)
 	go c.readerLoop(rd)
+
 	select {
 	case d := <-rd:
 		c.looping = false
@@ -149,19 +150,17 @@ func (c *Client) AttachChat(w io.Writer) error {
 	return nil
 }
 
-func (c *Client) handleResponse(seq byte, response []byte, last bool) {
+func (c *Client) handleResponse(seq uint32, response []byte, last bool) {
 	glog.V(6).Infoln("Handling Response:", response, string(response))
 	c.cmdLock.RLock()
 	trm, ex := c.cmdMap[seq]
 	c.cmdLock.RUnlock()
 	if !ex {
 		if len(response) == 0 {
-			c.sequence.Lock()
-			se := c.sequence.s
-			c.sequence.Unlock()
+			se := atomic.LoadUint32(c.seq)
 			if se == seq {
 				glog.V(3).Infoln("Received KeepAlive Pingback")
-				atomic.AddInt64(&c.pingbackCount, 1)
+				atomic.AddInt64(c.pingbackCount, 1)
 			}
 		} else {
 			glog.Warningf("No Entry in cmdMap for: %v - (%v)", string(response), response)
@@ -187,7 +186,7 @@ func (c *Client) handleResponse(seq byte, response []byte, last bool) {
 			}
 
 			//TODO: Evaluate if this is required
-			go func(c *Client, seq byte) {
+			go func(c *Client, seq uint32) {
 				c.cmdLock.Lock()
 				delete(c.cmdMap, seq)
 				c.cmdLock.Unlock()

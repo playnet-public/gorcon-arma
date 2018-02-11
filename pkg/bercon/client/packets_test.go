@@ -13,7 +13,7 @@ func TestVerifyPacket(t *testing.T) {
 	tests := []struct {
 		name        string
 		packet      []byte
-		wantSeq     byte
+		wantSeq     uint32
 		wantData    string
 		wantPckType byte
 		wantErr     bool
@@ -174,7 +174,7 @@ func TestCheckMultiPacketResponse(t *testing.T) {
 func TestBuildPackets(t *testing.T) {
 	tests := []struct {
 		name string
-		seq  uint8
+		seq  uint32
 		data []byte
 		t    byte
 		want []byte
@@ -236,7 +236,7 @@ func TestBuildPackets(t *testing.T) {
 
 func TestBuildKeepAlivePacket(t *testing.T) {
 	type args struct {
-		seq uint8
+		seq uint32
 	}
 	tests := []struct {
 		name string
@@ -257,7 +257,7 @@ func TestBuildKeepAlivePacket(t *testing.T) {
 func TestBuildCmdPacket(t *testing.T) {
 	type args struct {
 		cmd []byte
-		seq uint8
+		seq uint32
 	}
 	tests := []struct {
 		name string

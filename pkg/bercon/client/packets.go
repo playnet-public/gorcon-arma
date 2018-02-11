@@ -22,22 +22,22 @@ func BuildLoginPacket(pw string) []byte {
 }
 
 //BuildCmdPacket creates a packet with cmd and seq
-func BuildCmdPacket(cmd []byte, seq uint8) []byte {
-	return BuildPacket(append([]byte{seq}, cmd...), PacketType.Command)
+func BuildCmdPacket(cmd []byte, seq uint32) []byte {
+	return BuildPacket(append([]byte{byte(seq)}, cmd...), PacketType.Command)
 }
 
 //BuildKeepAlivePacket creates a keepAlivePacket with seq
-func BuildKeepAlivePacket(seq uint8) []byte {
-	return BuildPacket([]byte{seq}, PacketType.Command)
+func BuildKeepAlivePacket(seq uint32) []byte {
+	return BuildPacket([]byte{byte(seq)}, PacketType.Command)
 }
 
 //BuildMsgAckPacket creates a server message packet with seq
-func BuildMsgAckPacket(seq uint8) []byte {
-	return BuildPacket([]byte{seq}, PacketType.ServerMessage)
+func BuildMsgAckPacket(seq uint32) []byte {
+	return BuildPacket([]byte{byte(seq)}, PacketType.ServerMessage)
 }
 
 //VerifyPacket checks a package and its contents for errors or tampering
-func VerifyPacket(packet []byte) (seq byte, data []byte, pckType byte, err error) {
+func VerifyPacket(packet []byte) (seq uint32, data []byte, pckType byte, err error) {
 	defer func() {
 		if err != nil {
 			raven.CaptureError(fmt.Errorf("%v - Packet: %v", err, string(data)), map[string]string{"app": "rcon", "module": "packets"})

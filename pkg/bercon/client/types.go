@@ -14,7 +14,7 @@ import (
 type transmission struct {
 	packet      []byte
 	command     []byte
-	sequence    byte
+	sequence    uint32
 	response    []byte
 	timestamp   time.Time
 	writeCloser io.WriteCloser
@@ -32,16 +32,12 @@ type Client struct {
 	cmdChan    chan transmission
 	looping    bool
 
-	sequence struct {
-		sync.RWMutex
-		s byte
-	}
-
-	cmdMap  map[byte]transmission
+	cmdMap  map[uint32]transmission
 	cmdLock sync.RWMutex
 
-	keepAliveCount int64
-	pingbackCount  int64
+	seq            *uint32
+	keepAliveCount *int64
+	pingbackCount  *int64
 
 	chatWriter struct {
 		sync.Mutex
@@ -88,10 +84,10 @@ func ResponseType(data []byte) (byte, error) {
 }
 
 //GetSequence extracts the seq number from a packet
-func GetSequence(data []byte) (byte, error) {
+func GetSequence(data []byte) (uint32, error) {
 	if len(data) < 9 {
 		raven.CaptureError(common.ErrInvalidSizeNoSequence, nil)
 		return 0, common.ErrInvalidSizeNoSequence
 	}
-	return data[8], nil
+	return uint32(data[8]), nil
 }

@@ -40,28 +40,11 @@ func TestResponseType(t *testing.T) {
 	}
 }
 
-func Test_getSequence(t *testing.T) {
-	var tests = []struct {
-		test     []byte
-		expected byte
-	}{}
-
-	for _, v := range tests {
-		result, err := GetSequence(v.test)
-		if err != nil {
-			t.Error("Packet Size mismatch")
-		}
-		if result != v.expected {
-			t.Error("Expected:", v.expected, "Got:", result)
-		}
-	}
-}
-
 func TestGetSequence(t *testing.T) {
 	tests := []struct {
 		name    string
 		data    []byte
-		want    byte
+		want    uint32
 		wantErr bool
 	}{
 		{

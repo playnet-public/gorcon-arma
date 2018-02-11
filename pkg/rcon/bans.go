@@ -142,7 +142,7 @@ func (bm *BanManager) CheckLocal(desc string) (status bool, ban *Ban) {
 	return is, b
 }
 
-//Check desc for a ban while starting every check as a single go routine to maintain non blocking behaviour
+//Check desc for a ban while starting every check as a single go routine to maintain non blocking behavior
 func (bm *BanManager) Check(desc string) (status bool, ban *Ban) {
 	if len(desc) < 5 {
 		glog.Errorln("invalid CheckDesc", desc)

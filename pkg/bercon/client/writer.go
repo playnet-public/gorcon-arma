@@ -41,13 +41,13 @@ func (c *Client) writerLoop(ret chan error, cmd chan transmission) {
 			if c.con != nil {
 				glog.V(3).Infof("Sending Keepalive")
 				c.con.SetWriteDeadline(time.Now().Add(time.Millisecond * 100))
-				_, err = c.con.Write(BuildKeepAlivePacket(c.sequence.s))
+				_, err = c.con.Write(BuildKeepAlivePacket(atomic.LoadUint32(c.seq)))
 				if err != nil {
 					glog.Errorln(err)
 					return
 				}
-				keepAliveCount := atomic.AddInt64(&c.keepAliveCount, 1)
-				pingbackCount := atomic.LoadInt64(&c.pingbackCount)
+				keepAliveCount := atomic.AddInt64(c.keepAliveCount, 1)
+				pingbackCount := atomic.LoadInt64(c.pingbackCount)
 				if diff := keepAliveCount - pingbackCount; diff > c.cfg.KeepAliveTolerance || diff < c.cfg.KeepAliveTolerance*-1 {
 					err = fmt.Errorf("KeepAlive Packets are out of sync by %v", diff)
 					glog.Errorln(err)
@@ -57,8 +57,8 @@ func (c *Client) writerLoop(ret chan error, cmd chan transmission) {
 				// Experimental change to check if growing count is causing performance leak
 				//TODO: Evaluate if this is still required
 				if keepAliveCount > 20 {
-					atomic.SwapInt64(&c.keepAliveCount, 0)
-					atomic.SwapInt64(&c.pingbackCount, 0)
+					atomic.SwapInt64(c.keepAliveCount, 0)
+					atomic.SwapInt64(c.pingbackCount, 0)
 				}
 			}
 		}
@@ -66,22 +66,19 @@ func (c *Client) writerLoop(ret chan error, cmd chan transmission) {
 }
 
 func (c *Client) writeCommand(trm transmission) error {
-	c.sequence.Lock()
 	if c.con != nil {
 		c.con.SetWriteDeadline(time.Now().Add(time.Second * 2)) //TODO: Evaluate Deadlines
-		trm.packet = BuildCmdPacket(trm.command, c.sequence.s)
-		glog.V(3).Infof("Sending Packet: %v - Command: %v - Sequence: %v", string(trm.packet), string(trm.command), c.sequence.s)
+		trm.packet = BuildCmdPacket(trm.command, atomic.LoadUint32(c.seq))
+		glog.V(3).Infof("Sending Packet: %v - Command: %v - Sequence: %v", string(trm.packet), string(trm.command), atomic.LoadUint32(c.seq))
 		_, err := c.con.Write(trm.packet)
 		if err != nil {
-			c.sequence.Unlock()
 			return err
 		}
-		trm.sequence = c.sequence.s
+		trm.sequence = atomic.LoadUint32(c.seq)
 		c.cmdLock.Lock()
-		c.cmdMap[c.sequence.s] = trm
+		c.cmdMap[atomic.LoadUint32(c.seq)] = trm
 		c.cmdLock.Unlock()
-		c.sequence.s = c.sequence.s + 1
+		atomic.AddUint32(c.seq, 1)
 	}
-	c.sequence.Unlock()
 	return nil
 }

@@ -35,7 +35,7 @@ func (c *Client) readerLoop(ret chan error) {
 				raven.CaptureError(err, map[string]string{"app": "rcon", "module": "reader"})
 				glog.Errorln(herr)
 			}
-			//TODO: Evaluate if parallel aproach is better
+			//TODO: Evaluate if parallel approach is better
 			//go c.handlePacket(data)
 		}
 		if err != nil {
