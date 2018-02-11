@@ -2,14 +2,15 @@ package client
 
 import (
 	"io"
-	"net"
-	"sync/atomic"
 	"time"
+
+	"github.com/playnet-public/gorcon-arma/pkg/bercon/connection"
 
 	"os"
 
 	raven "github.com/getsentry/raven-go"
 	"github.com/golang/glog"
+	"github.com/playnet-public/gorcon-arma/pkg/bercon/protocol"
 	"github.com/playnet-public/gorcon-arma/pkg/common"
 	"github.com/playnet-public/gorcon-arma/pkg/rcon"
 )
@@ -21,60 +22,34 @@ func New(con rcon.Connection, cred rcon.Credentials) *Client {
 	}
 
 	return &Client{
-		cfg:        con,
-		cred:       cred,
-		readBuffer: make([]byte, 4096),
-		cmdChan:    make(chan transmission),
-		cmdMap:     make(map[uint32]transmission),
+		cfg:  con,
+		cred: cred,
 	}
 }
 
+// Connect opens the udp connection
+func (c *Client) Connect() (err error) {
+	c.Lock()
+	defer c.Unlock()
+	c.con = connection.New()
+	err = c.con.Connect(c.cfg.Addr)
+	if err != nil {
+		return err
+	}
+	err = c.con.Login(c.cred.Password)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 //Connect opens a new Connection to the Server
-func (c *Client) Connect(q chan error) error {
-	var err error
-	c.con, err = net.DialUDP("udp", nil, c.cfg.Addr)
-	if err != nil {
-		c.con = nil
-		return err
-	}
-
-	//Read Buffer
-	buffer := make([]byte, 9)
-
-	glog.V(2).Infoln("Sending Login Information")
-	c.con.SetReadDeadline(time.Now().Add(time.Second * 2))
-	c.con.Write(BuildLoginPacket(c.cred.Password))
-	n, err := c.con.Read(buffer)
-	if err, ok := err.(net.Error); ok && err.Timeout() {
-		c.con.Close()
-		return common.ErrTimeout
-	}
-	if err != nil {
-		c.con.Close()
-		return err
-	}
-
-	response, err := VerifyLogin(buffer[:n])
-	if err != nil {
-		c.con.Close()
-		return err
-	}
-	if response == PacketResponse.LoginFail {
-		glog.Errorln("Non Login Packet Received:", response)
-		c.con.Close()
-		return common.ErrInvalidLogin
-	}
-	glog.Infoln("Login successful")
+func (c *Client) ConnectOld(q chan error) error {
 	if !c.looping {
 		c.looping = true
 		c.init = true
 		c.exit = false
-		atomic.StoreUint32(c.seq, 0)
-		atomic.StoreInt64(c.keepAliveCount, 0)
-		atomic.StoreInt64(c.pingbackCount, 0)
-		c.cmdLock.Lock()
-		c.cmdMap = make(map[uint32]transmission)
-		c.cmdLock.Unlock()
+
 		q <- common.ErrConnected
 	}
 	return nil
@@ -107,7 +82,7 @@ func (c *Client) Loop(q chan error) error {
 				if c.exit == true {
 					return
 				}
-				if err := c.Connect(q); err != nil {
+				if err := c.Connect(); err != nil {
 					glog.V(2).Info(err)
 					//TODO: Add Reconnect Time Setting
 					time.Sleep(time.Second * 3)
@@ -128,7 +103,7 @@ func (c *Client) Disconnect() error {
 
 //Exec adds given cmd to command queue
 func (c *Client) Exec(cmd []byte, resp io.WriteCloser) error {
-	c.cmdChan <- transmission{command: cmd, writeCloser: resp}
+	c.cmdChan <- protocol.Transmission{Command: cmd, WriteCloser: resp}
 	return nil
 }
 
@@ -152,15 +127,13 @@ func (c *Client) AttachChat(w io.Writer) error {
 
 func (c *Client) handleResponse(seq uint32, response []byte, last bool) {
 	glog.V(6).Infoln("Handling Response:", response, string(response))
-	c.cmdLock.RLock()
-	trm, ex := c.cmdMap[seq]
-	c.cmdLock.RUnlock()
+	trm, ex := c.con.GetTransmission(seq)
 	if !ex {
 		if len(response) == 0 {
-			se := atomic.LoadUint32(c.seq)
+			se := c.con.Sequence()
 			if se == seq {
 				glog.V(3).Infoln("Received KeepAlive Pingback")
-				atomic.AddInt64(c.pingbackCount, 1)
+				c.con.AddPingback()
 			}
 		} else {
 			glog.Warningf("No Entry in cmdMap for: %v - (%v)", string(response), response)
@@ -170,14 +143,14 @@ func (c *Client) handleResponse(seq uint32, response []byte, last bool) {
 		if !last {
 			trail = []byte{}
 		}
-		trm.response = append(trm.response, response...)
-		trm.response = append(trm.response, trail...)
+		trm.Response = append(trm.Response, response...)
+		trm.Response = append(trm.Response, trail...)
 		if last {
-			if trm.writeCloser != nil {
-				glog.V(4).Infoln("Writing", string(trm.response), "to output")
-				trm.writeCloser.Write(trm.response)
-				if trm.writeCloser != os.Stderr && trm.writeCloser != os.Stdout {
-					err := trm.writeCloser.Close()
+			if trm.WriteCloser != nil {
+				glog.V(4).Infoln("Writing", string(trm.Response), "to output")
+				trm.WriteCloser.Write(trm.Response)
+				if trm.WriteCloser != os.Stderr && trm.WriteCloser != os.Stdout {
+					err := trm.WriteCloser.Close()
 					if err != nil {
 						glog.Errorln(err)
 						raven.CaptureError(err, map[string]string{"app": "rcon", "module": "client"})
@@ -187,9 +160,7 @@ func (c *Client) handleResponse(seq uint32, response []byte, last bool) {
 
 			//TODO: Evaluate if this is required
 			go func(c *Client, seq uint32) {
-				c.cmdLock.Lock()
-				delete(c.cmdMap, seq)
-				c.cmdLock.Unlock()
+				c.con.DeleteTransmission(seq)
 			}(c, seq)
 		}
 	}

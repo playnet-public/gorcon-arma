@@ -1,18 +1,20 @@
 package client
 
 import (
-	"sync/atomic"
 	"time"
 
 	"fmt"
 
 	raven "github.com/getsentry/raven-go"
 	"github.com/golang/glog"
+	"github.com/playnet-public/gorcon-arma/pkg/bercon/protocol"
 	"github.com/playnet-public/gorcon-arma/pkg/common"
 )
 
-func (c *Client) writerLoop(ret chan error, cmd chan transmission) {
+func (c *Client) writerLoop(ret chan error, cmd chan protocol.Transmission) {
 	var err error
+	c.RLock()
+	defer c.RUnlock()
 	defer func() { ret <- err }()
 	for {
 		glog.V(10).Infoln("Looping in writerLoop")
@@ -20,7 +22,7 @@ func (c *Client) writerLoop(ret chan error, cmd chan transmission) {
 			glog.V(4).Infoln("WriterLoop ended externally. Exiting.")
 			return
 		}
-		if c.con == nil {
+		if c.con.UDPConn == nil {
 			glog.Errorln(common.ErrConnectionNil)
 			raven.CaptureError(common.ErrConnectionNil, map[string]string{"app": "rcon", "module": "writer"})
 			err = common.ErrConnectionNil
@@ -38,16 +40,16 @@ func (c *Client) writerLoop(ret chan error, cmd chan transmission) {
 				return
 			}
 		case <-timeout:
-			if c.con != nil {
+			if c.con.UDPConn != nil {
 				glog.V(3).Infof("Sending Keepalive")
 				c.con.SetWriteDeadline(time.Now().Add(time.Millisecond * 100))
-				_, err = c.con.Write(BuildKeepAlivePacket(atomic.LoadUint32(c.seq)))
+				_, err = c.con.Write(protocol.BuildKeepAlivePacket(c.con.Sequence()))
 				if err != nil {
 					glog.Errorln(err)
 					return
 				}
-				keepAliveCount := atomic.AddInt64(c.keepAliveCount, 1)
-				pingbackCount := atomic.LoadInt64(c.pingbackCount)
+				keepAliveCount := c.con.KeepAlive()
+				pingbackCount := c.con.Pingback()
 				if diff := keepAliveCount - pingbackCount; diff > c.cfg.KeepAliveTolerance || diff < c.cfg.KeepAliveTolerance*-1 {
 					err = fmt.Errorf("KeepAlive Packets are out of sync by %v", diff)
 					glog.Errorln(err)
@@ -57,28 +59,26 @@ func (c *Client) writerLoop(ret chan error, cmd chan transmission) {
 				// Experimental change to check if growing count is causing performance leak
 				//TODO: Evaluate if this is still required
 				if keepAliveCount > 20 {
-					atomic.SwapInt64(c.keepAliveCount, 0)
-					atomic.SwapInt64(c.pingbackCount, 0)
+					c.con.ResetPingback()
+					c.con.ResetKeepAlive()
 				}
 			}
 		}
 	}
 }
 
-func (c *Client) writeCommand(trm transmission) error {
-	if c.con != nil {
+func (c *Client) writeCommand(trm protocol.Transmission) error {
+	if c.con.UDPConn != nil {
 		c.con.SetWriteDeadline(time.Now().Add(time.Second * 2)) //TODO: Evaluate Deadlines
-		trm.packet = BuildCmdPacket(trm.command, atomic.LoadUint32(c.seq))
-		glog.V(3).Infof("Sending Packet: %v - Command: %v - Sequence: %v", string(trm.packet), string(trm.command), atomic.LoadUint32(c.seq))
-		_, err := c.con.Write(trm.packet)
+		trm.Packet = protocol.BuildCmdPacket(trm.Command, c.con.Sequence())
+		glog.V(3).Infof("Sending Packet: %v - Command: %v - Sequence: %v", string(trm.Packet), string(trm.Command), c.con.Sequence())
+		_, err := c.con.Write(trm.Packet)
 		if err != nil {
 			return err
 		}
-		trm.sequence = atomic.LoadUint32(c.seq)
-		c.cmdLock.Lock()
-		c.cmdMap[atomic.LoadUint32(c.seq)] = trm
-		c.cmdLock.Unlock()
-		atomic.AddUint32(c.seq, 1)
+		trm.Sequence = c.con.Sequence()
+		c.con.SetTransmission(c.con.Sequence(), trm)
+		c.con.AddSequence()
 	}
 	return nil
 }
