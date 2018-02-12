@@ -3,12 +3,9 @@ package client
 import (
 	"time"
 
-	"fmt"
-
-	raven "github.com/getsentry/raven-go"
-	"github.com/golang/glog"
 	"github.com/playnet-public/gorcon-arma/pkg/bercon/protocol"
 	"github.com/playnet-public/gorcon-arma/pkg/common"
+	"go.uber.org/zap"
 )
 
 func (c *Client) writerLoop(ret chan error, cmd chan protocol.Transmission) {
@@ -17,14 +14,13 @@ func (c *Client) writerLoop(ret chan error, cmd chan protocol.Transmission) {
 	defer c.RUnlock()
 	defer func() { ret <- err }()
 	for {
-		glog.V(10).Infoln("Looping in writerLoop")
+		c.log.Debug("looping writer")
 		if !c.looping {
-			glog.V(4).Infoln("WriterLoop ended externally. Exiting.")
+			c.log.Info("loop exited", zap.String("loop", "writer"))
 			return
 		}
 		if c.con.UDPConn == nil {
-			glog.Errorln(common.ErrConnectionNil)
-			raven.CaptureError(common.ErrConnectionNil, map[string]string{"app": "rcon", "module": "writer"})
+			c.log.Error("invalid connection", zap.Error(common.ErrConnectionNil))
 			err = common.ErrConnectionNil
 			return
 		}
@@ -33,28 +29,27 @@ func (c *Client) writerLoop(ret chan error, cmd chan protocol.Transmission) {
 
 		select {
 		case trm := <-cmd:
-			glog.V(4).Infoln("Preparing Command: ", trm)
+			c.log.Debug("preparing command", zap.ByteString("command", trm.Command))
 			err = c.writeCommand(trm)
 			if err != nil {
-				glog.Error(err)
+				c.log.Error("write command error", zap.ByteString("command", trm.Command), zap.Error(err))
 				return
 			}
 		case <-timeout:
 			if c.con.UDPConn != nil {
-				glog.V(3).Infof("Sending Keepalive")
+				c.log.Debug("sending keepalive", zap.Int64("count", c.con.KeepAlive()))
 				c.con.SetWriteDeadline(time.Now().Add(time.Millisecond * 100))
 				_, err = c.con.Write(protocol.BuildKeepAlivePacket(c.con.Sequence()))
 				if err != nil {
-					glog.Errorln(err)
+					c.log.Error("send keepalive error", zap.Error(err))
 					return
 				}
 				c.con.AddKeepAlive()
 				keepAliveCount := c.con.KeepAlive()
 				pingbackCount := c.con.Pingback()
 				if diff := keepAliveCount - pingbackCount; diff > c.cfg.KeepAliveTolerance || diff < c.cfg.KeepAliveTolerance*-1 {
-					err = fmt.Errorf("KeepAlive Packets are out of sync by %v", diff)
-					glog.Errorln(err)
-					raven.CaptureError(err, map[string]string{"app": "rcon", "module": "writer"})
+					err = common.ErrKeepAliveAsync
+					c.log.Error("keepalive out of sync", zap.Int64("count", diff))
 					return
 				}
 				// Experimental change to check if growing count is causing performance leak
@@ -72,7 +67,7 @@ func (c *Client) writeCommand(trm protocol.Transmission) error {
 	if c.con.UDPConn != nil {
 		c.con.SetWriteDeadline(time.Now().Add(time.Second * 2)) //TODO: Evaluate Deadlines
 		trm.Packet = protocol.BuildCmdPacket(trm.Command, c.con.Sequence())
-		glog.V(3).Infof("Sending Packet: %v - Command: %v - Sequence: %v", string(trm.Packet), string(trm.Command), c.con.Sequence())
+		c.log.Debug("sending packet", zap.Uint32("seq", c.con.Sequence()), zap.ByteString("cmd", trm.Command), zap.ByteString("packet", trm.Packet))
 		_, err := c.con.Write(trm.Packet)
 		if err != nil {
 			return err

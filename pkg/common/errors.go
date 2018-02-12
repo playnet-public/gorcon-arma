@@ -33,4 +33,6 @@ var (
 	ErrInvalidSize = errors.New("Packet size too")
 	//ErrConnected is not really an error but a information state
 	ErrConnected = errors.New("Client Connected")
+	//ErrKeepAliveAsync .
+	ErrKeepAliveAsync = errors.New("keepAlive packets are out of sync")
 )

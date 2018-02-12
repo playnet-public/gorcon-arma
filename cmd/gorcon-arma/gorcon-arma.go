@@ -99,7 +99,7 @@ func do(log *log.Logger) (err error) {
 		})
 		log.Sentry.SetRelease(version.Version().Version)
 	}
-	panic("test")
+
 	useSched := cfg.GetBool("scheduler.enabled")
 	useWatch := cfg.GetBool("watcher.enabled")
 	logToConsole := cfg.GetBool("watcher.logToConsole")

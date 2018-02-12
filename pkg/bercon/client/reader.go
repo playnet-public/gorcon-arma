@@ -5,10 +5,9 @@ import (
 	"strings"
 	"time"
 
-	raven "github.com/getsentry/raven-go"
-	"github.com/golang/glog"
 	"github.com/playnet-public/gorcon-arma/pkg/bercon/protocol"
 	"github.com/playnet-public/gorcon-arma/pkg/common"
+	"go.uber.org/zap"
 )
 
 func (c *Client) readerLoop(ret chan error) {
@@ -17,14 +16,14 @@ func (c *Client) readerLoop(ret chan error) {
 	defer c.RUnlock()
 	defer func() { ret <- err }()
 	for {
-		glog.V(10).Infoln("Looping in readerLoop")
+		c.log.Debug("looping reader")
 		if !c.looping {
-			glog.V(4).Infoln("ReaderLoop ended externally. Exiting.")
+			c.log.Info("loop exited", zap.String("loop", "reader"))
 			//TODO: Should we place some error return here?
 			return
 		}
 		if c.con.UDPConn == nil {
-			glog.Errorln(common.ErrConnectionNil)
+			c.log.Error("invalid connection", zap.Error(common.ErrConnectionNil))
 			err = common.ErrConnectionNil
 			return
 		}
@@ -33,21 +32,19 @@ func (c *Client) readerLoop(ret chan error) {
 		n, err := c.con.Read(c.con.ReadBuffer)
 		if err == nil {
 			data := c.con.ReadBuffer[:n]
-			glog.V(5).Infof("Received Data: %v", data, "-", string(data))
+			c.log.Error("received data", zap.ByteString("data", data))
 			if herr := c.handlePacket(data); herr != nil {
-				raven.CaptureError(err, map[string]string{"app": "rcon", "module": "reader"})
-				glog.Errorln(herr)
+				c.log.Error("packet error", zap.Error(herr))
 			}
 			//TODO: Evaluate if parallel approach is better
 			//go c.handlePacket(data)
 		}
 		if err != nil {
 			if err, _ := err.(net.Error); err.Timeout() {
-				glog.V(5).Infoln(err)
+				c.log.Debug("timeout", zap.Error(err))
 				continue
 			} else {
-				glog.Error(err)
-				raven.CaptureErrorAndWait(err, map[string]string{"app": "rcon", "module": "reader"})
+				c.log.Debug("read error", zap.Error(err))
 				return
 			}
 		}
@@ -58,19 +55,19 @@ func (c *Client) readerLoop(ret chan error) {
 func (c *Client) handlePacket(packet []byte) error {
 	seq, data, pType, err := protocol.VerifyPacket(packet)
 	if err != nil {
-		glog.Errorln(err)
+		c.log.Debug("verify packet error", zap.Error(err))
 		return err
 	}
 
 	// Handle Packet Types
 	if pType == protocol.PacketType.ServerMessage {
-		glog.V(3).Infof("ServerMessage Packet: %v - Sequence: %v", string(data), seq)
+		c.log.Debug("server message", zap.Uint32("seq", seq), zap.ByteString("data", data))
 		c.handleServerMessage(append(data[3:], []byte("\n")...))
 		if c.con.UDPConn != nil {
 			c.con.SetWriteDeadline(time.Now().Add(time.Millisecond * 100))
 			_, err := c.con.Write(protocol.BuildMsgAckPacket(seq))
 			if err != nil {
-				glog.Error(err)
+				c.log.Debug("write ack error", zap.Error(err))
 				return err
 			}
 		}
@@ -78,13 +75,12 @@ func (c *Client) handlePacket(packet []byte) error {
 	}
 
 	if pType != protocol.PacketType.Command && pType != protocol.PacketType.MultiCommand {
-		glog.V(2).Infof("Packet: %v - PacketType: %v", string(packet), pType)
-		raven.CaptureError(common.ErrUnknownPacketType, map[string]string{"packetType": string(pType), "app": "rcon", "module": "reader"})
+		c.log.Debug("unknown packet", zap.Uint8("type", pType), zap.ByteString("packet", packet))
 		return common.ErrUnknownPacketType
 	}
 
 	packetCount, currentPacket, isMultiPacket := protocol.CheckMultiPacketResponse(data)
-	glog.V(3).Infof("Packet: %v - Sequence: %v - IsMulti: %v", string(data), seq, isMultiPacket)
+	c.log.Debug("packet received", zap.Uint32("seq", seq), zap.Bool("multi", isMultiPacket), zap.ByteString("packet", data))
 	if !isMultiPacket {
 		c.handleResponse(seq, data[3:], true)
 		return nil
@@ -106,14 +102,12 @@ func (c *Client) handleServerMessage(data []byte) {
 		"(Unknown)",
 	}
 	for _, v := range ChatPatterns {
-		glog.V(10).Infoln("Looping in handleServerMessage")
 		if strings.HasPrefix(string(data), v) {
 			if c.chatWriter.Writer != nil {
 				c.chatWriter.Lock()
 				_, err := c.chatWriter.Write(data)
 				if err != nil {
-					raven.CaptureError(err, map[string]string{"app": "rcon", "module": "reader"})
-					glog.Error(err)
+					c.log.Error("chat write error", zap.Error(err))
 				}
 				c.chatWriter.Unlock()
 			}
@@ -126,8 +120,7 @@ func (c *Client) handleServerMessage(data []byte) {
 		c.eventWriter.Lock()
 		_, err := c.eventWriter.Write(data)
 		if err != nil {
-			raven.CaptureError(err, map[string]string{"app": "rcon", "module": "reader"})
-			glog.Error(err)
+			c.log.Error("event write error", zap.Error(err))
 		}
 		c.eventWriter.Unlock()
 	}
