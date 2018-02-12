@@ -48,6 +48,7 @@ func (c *Client) writerLoop(ret chan error, cmd chan protocol.Transmission) {
 					glog.Errorln(err)
 					return
 				}
+				c.con.AddKeepAlive()
 				keepAliveCount := c.con.KeepAlive()
 				pingbackCount := c.con.Pingback()
 				if diff := keepAliveCount - pingbackCount; diff > c.cfg.KeepAliveTolerance || diff < c.cfg.KeepAliveTolerance*-1 {
@@ -58,10 +59,10 @@ func (c *Client) writerLoop(ret chan error, cmd chan protocol.Transmission) {
 				}
 				// Experimental change to check if growing count is causing performance leak
 				//TODO: Evaluate if this is still required
-				if keepAliveCount > 20 {
+				/*if keepAliveCount > 20 {
 					c.con.ResetPingback()
 					c.con.ResetKeepAlive()
-				}
+				}*/
 			}
 		}
 	}
