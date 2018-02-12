@@ -11,7 +11,6 @@ import (
 	raven "github.com/getsentry/raven-go"
 	"github.com/golang/glog"
 	"github.com/playnet-public/gorcon-arma/pkg/bercon/protocol"
-	"github.com/playnet-public/gorcon-arma/pkg/common"
 	"github.com/playnet-public/gorcon-arma/pkg/rcon"
 )
 
@@ -40,18 +39,16 @@ func (c *Client) Connect() (err error) {
 	if err != nil {
 		return err
 	}
+	if !c.looping {
+		c.looping = true
+		c.init = true
+		c.exit = false
+	}
 	return nil
 }
 
 //Connect opens a new Connection to the Server
 func (c *Client) ConnectOld(q chan error) error {
-	if !c.looping {
-		c.looping = true
-		c.init = true
-		c.exit = false
-
-		q <- common.ErrConnected
-	}
 	return nil
 }
 

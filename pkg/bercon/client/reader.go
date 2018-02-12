@@ -30,9 +30,9 @@ func (c *Client) readerLoop(ret chan error) {
 		}
 
 		c.con.SetReadDeadline(time.Now().Add(time.Second * 2)) //Evaluate if Deadline is required
-		n, err := c.con.Read(c.readBuffer)
+		n, err := c.con.Read(c.con.ReadBuffer)
 		if err == nil {
-			data := c.readBuffer[:n]
+			data := c.con.ReadBuffer[:n]
 			glog.V(5).Infof("Received Data: %v", data, "-", string(data))
 			if herr := c.handlePacket(data); herr != nil {
 				raven.CaptureError(err, map[string]string{"app": "rcon", "module": "reader"})

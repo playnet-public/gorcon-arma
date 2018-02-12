@@ -14,7 +14,7 @@ import (
 // Conn to BattlEye
 type Conn struct {
 	*net.UDPConn
-	readBuffer     []byte
+	ReadBuffer     []byte
 	seq            uint32
 	keepAliveCount int64
 	pingbackCount  int64
@@ -28,7 +28,7 @@ type Conn struct {
 // New Connection to BattlEye
 func New() *Conn {
 	c := &Conn{
-		readBuffer: make([]byte, 4096),
+		ReadBuffer: make([]byte, 4096),
 	}
 	atomic.StoreUint32(&c.seq, 0)
 	atomic.StoreInt64(&c.keepAliveCount, 0)

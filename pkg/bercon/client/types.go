@@ -16,11 +16,10 @@ type Client struct {
 	con  *connection.Conn
 	sync.RWMutex
 
-	init       bool
-	exit       bool
-	readBuffer []byte
-	cmdChan    chan protocol.Transmission
-	looping    bool
+	init    bool
+	exit    bool
+	cmdChan chan protocol.Transmission
+	looping bool
 
 	chatWriter struct {
 		sync.Mutex
