@@ -1,0 +1,18 @@
+language: go
+
+go:
+  - 1.8.x
+  - 1.9.x
+
+go_import_path: github.com/playnet-public/libs
+
+env:
+  global:
+  - REPO: $TRAVIS_REPO_SLUG
+  - VERSION: $TRAVIS_TAG
+
+before_install:
+  - make deps
+
+script:
+- make test

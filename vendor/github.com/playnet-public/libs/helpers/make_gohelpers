@@ -1,0 +1,19 @@
+check: format lint vet
+
+# vet entire repo
+vet:
+	@go vet $(shell go list ./... | grep -v /vendor/)
+
+# lint entire repo
+lint:
+	golint -min_confidence 1 $(shell go list ./... | grep -v /vendor/)
+
+# errcheck entire repo
+errcheck:
+	@echo $(GOROOT) 
+	errcheck -ignore '(Close|Write)' $(shell go list ./... | grep -v /vendor/)
+
+# format entire repo
+format:
+	find . -name "*.go" ! -path "./vendor/*" -exec gofmt -w "{}" \;
+	goimports -w=true .

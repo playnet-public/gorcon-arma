@@ -2,10 +2,22 @@
 
 
 [[projects]]
+  name = "github.com/apache/thrift"
+  packages = ["lib/go/thrift"]
+  revision = "b2a4d4ae21c789b689dd162deb819665567f481c"
+  version = "0.10.0"
+
+[[projects]]
   name = "github.com/certifi/gocertifi"
   packages = ["."]
   revision = "deb3ae2ef2610fde3330947281941c562861188b"
   version = "2018.01.18"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/codahale/hdrhistogram"
+  packages = ["."]
+  revision = "3a0bb77429bd3a61596f5e8a3172445844342120"
 
 [[projects]]
   name = "github.com/fsnotify/fsnotify"
@@ -57,7 +69,17 @@
   branch = "master"
   name = "github.com/mitchellh/mapstructure"
   packages = ["."]
-  revision = "b4575eea38cca1123ec2dc90c26529b5c5acfcff"
+  revision = "a4e142e9c047c904fa2f1e144d9a84e6133024bc"
+
+[[projects]]
+  name = "github.com/opentracing/opentracing-go"
+  packages = [
+    ".",
+    "ext",
+    "log"
+  ]
+  revision = "1949ddbfd147afd4d964a9f00b24eb291e0e7c38"
+  version = "v1.0.2"
 
 [[projects]]
   name = "github.com/pelletier/go-toml"
@@ -70,6 +92,12 @@
   packages = ["."]
   revision = "645ef00459ed84a119197bfb8d8205042c6df63d"
   version = "v0.8.0"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/playnet-public/libs"
+  packages = ["log"]
+  revision = "bf18bff6971ebed9edbb474aea54a37f80ad6b72"
 
 [[projects]]
   name = "github.com/robfig/cron"
@@ -111,6 +139,33 @@
   version = "v1.0.0"
 
 [[projects]]
+  name = "github.com/uber/jaeger-client-go"
+  packages = [
+    ".",
+    "config",
+    "internal/baggage",
+    "internal/baggage/remote",
+    "internal/spanlog",
+    "log",
+    "log/zap",
+    "rpcmetrics",
+    "thrift-gen/agent",
+    "thrift-gen/baggage",
+    "thrift-gen/jaeger",
+    "thrift-gen/sampling",
+    "thrift-gen/zipkincore",
+    "utils"
+  ]
+  revision = "3ac96c6e679cb60a74589b0d0aa7c70a906183f7"
+  version = "v2.11.2"
+
+[[projects]]
+  name = "github.com/uber/jaeger-lib"
+  packages = ["metrics"]
+  revision = "7f95f4f7e80028096410abddaae2556e4c61b59f"
+  version = "v1.3.1"
+
+[[projects]]
   name = "go.uber.org/atomic"
   packages = ["."]
   revision = "8474b86a5a6f79c443ce4b2992817ff32cf208b8"
@@ -137,6 +192,12 @@
 
 [[projects]]
   branch = "master"
+  name = "golang.org/x/net"
+  packages = ["context"]
+  revision = "f5dfe339be1d06f81b22525fe34671ee7d2c8904"
+
+[[projects]]
+  branch = "master"
   name = "golang.org/x/sys"
   packages = ["unix"]
   revision = "37707fdb30a5b38865cfb95e5aab41707daec7fd"
@@ -152,7 +213,7 @@
     "unicode/cldr",
     "unicode/norm"
   ]
-  revision = "e19ae1496984b1c655b8044a65c0300a3c878dd3"
+  revision = "4e4a3210bb54bb31f6ab2cdca2edcc0b50c420c1"
 
 [[projects]]
   branch = "v2"
@@ -163,6 +224,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "ea4d90e41f6b51d0a60aace12c3efe9637d176af28dff9a05a7e28d22ee92fb8"
+  inputs-digest = "a3641fdc8145ffbe766d2770c8b6e4869f3235ed8df1b2586c0cdfe769dceafc"
   solver-name = "gps-cdcl"
   solver-version = 1

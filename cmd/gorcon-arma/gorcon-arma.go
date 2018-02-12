@@ -18,6 +18,7 @@ import (
 	"github.com/playnet-public/gorcon-arma/pkg/rcon"
 	"github.com/playnet-public/gorcon-arma/pkg/scheduler"
 	"github.com/playnet-public/gorcon-arma/pkg/watcher"
+	"github.com/playnet-public/libs/log"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
@@ -69,20 +70,19 @@ func main() {
 		}
 	}
 
-	// prepare zap logging
-	log := newLogger(*dbgPtr).With(zapFields...)
+	log := log.New(appKey, "", *dbgPtr).WithFields(zapFields...)
 	defer log.Sync()
 	log.Info("preparing")
 
 	raven.CapturePanicAndWait(func() {
-		if err := do(); err != nil {
+		if err := do(log); err != nil {
 			glog.Fatal(err)
 			raven.CaptureErrorAndWait(err, map[string]string{"isFinal": "true"})
 		}
 	}, nil)
 }
 
-func do() (err error) {
+func do(log *log.Logger) (err error) {
 	cfg = getConfig()
 
 	if !*devBuildPtr {
@@ -340,35 +340,4 @@ func getConfig() *viper.Viper {
 		panic(message)
 	}
 	return cfg
-}
-
-//TODO: Move this to playnet common libs
-func newLogger(dbg bool) *zap.Logger {
-	highPriority := zap.LevelEnablerFunc(func(lvl zapcore.Level) bool {
-		return lvl >= zapcore.ErrorLevel
-	})
-	lowPriority := zap.LevelEnablerFunc(func(lvl zapcore.Level) bool {
-		return lvl < zapcore.ErrorLevel
-	})
-
-	consoleDebugging := zapcore.Lock(os.Stdout)
-	consoleErrors := zapcore.Lock(os.Stderr)
-	consoleConfig := zap.NewDevelopmentEncoderConfig()
-	consoleEncoder := zapcore.NewConsoleEncoder(consoleConfig)
-	core := zapcore.NewTee(
-		zapcore.NewCore(consoleEncoder, consoleErrors, highPriority),
-		zapcore.NewCore(consoleEncoder, consoleDebugging, lowPriority),
-	)
-	logger := zap.New(core)
-	if dbg {
-		logger = logger.WithOptions(
-			zap.AddCaller(),
-			zap.AddStacktrace(zap.ErrorLevel),
-		)
-	} else {
-		logger = logger.WithOptions(
-			zap.AddStacktrace(zap.FatalLevel),
-		)
-	}
-	return logger
 }

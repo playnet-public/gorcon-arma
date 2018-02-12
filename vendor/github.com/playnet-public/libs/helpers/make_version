@@ -1,0 +1,30 @@
+# script for determining build versions for make
+ifneq ($(OS), Windows_NT)
+	CURRENT_PLATFORM = linux
+
+	# If on macOS, set the shell to bash explicitly
+	ifeq ($(shell uname), Darwin)
+		SHELL := /bin/bash
+		CURRENT_PLATFORM = darwin
+	endif
+
+	# To populate version metadata, we use unix tools to get certain data
+	GOVERSION = $(shell go version | awk '{print $$3}')
+	NOW	= $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
+else
+	CURRENT_PLATFORM = windows
+	# To populate version metadata, we use windows tools to get the certain data
+	GOVERSION_CMD = "(go version).Split()[2]"
+	GOVERSION = $(shell powershell $(GOVERSION_CMD))
+	NOW	= $(shell powershell Get-Date -format s)
+endif
+
+# set version information
+KIT_VERSION = "\
+	-X ${GIT_HOST}/${REPO}/${NAME}/vendor/github.com/kolide/kit/version.appName=${APP_NAME} \
+	-X ${GIT_HOST}/${REPO}/${NAME}/vendor/github.com/kolide/kit/version.version=${VERSION} \
+	-X ${GIT_HOST}/${REPO}/${NAME}/vendor/github.com/kolide/kit/version.branch=${BRANCH} \
+	-X ${GIT_HOST}/${REPO}/${NAME}/vendor/github.com/kolide/kit/version.revision=${REVISION} \
+	-X ${GIT_HOST}/${REPO}/${NAME}/vendor/github.com/kolide/kit/version.buildDate=${NOW} \
+	-X ${GIT_HOST}/${REPO}/${NAME}/vendor/github.com/kolide/kit/version.buildUser=${USER} \
+	-X ${GIT_HOST}/${REPO}/${NAME}/vendor/github.com/kolide/kit/version.goVersion=${GOVERSION}"
