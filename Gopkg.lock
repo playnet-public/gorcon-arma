@@ -97,7 +97,7 @@
   branch = "master"
   name = "github.com/playnet-public/libs"
   packages = ["log"]
-  revision = "bf18bff6971ebed9edbb474aea54a37f80ad6b72"
+  revision = "a5c24fbd4906e01f7d97ffe22eeee5f1783fc604"
 
 [[projects]]
   name = "github.com/robfig/cron"

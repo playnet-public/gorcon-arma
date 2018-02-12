@@ -8,10 +8,12 @@ import (
 	"time"
 
 	"github.com/playnet-public/gorcon-arma/pkg/bercon/protocol"
+	"github.com/playnet-public/libs/log"
 )
 
 func TestNew(t *testing.T) {
-	c := New()
+	log := log.NewNop()
+	c := New(log)
 	tests := []struct {
 		name string
 		want *Conn
@@ -23,7 +25,7 @@ func TestNew(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := New(); !reflect.DeepEqual(got, tt.want) {
+			if got := New(log); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("New() = %v, want %v", got, tt.want)
 			}
 		})
@@ -39,7 +41,8 @@ func TestConn_Connect(t *testing.T) {
 	if err != nil {
 		t.Errorf("failed to resolve address: %v", srv.LocalAddr())
 	}
-	con := New()
+	log := log.NewNop()
+	con := New(log)
 	type args struct {
 		addr *net.UDPAddr
 	}
@@ -84,7 +87,8 @@ func TestConn_Login(t *testing.T) {
 	if err != nil {
 		t.Errorf("failed to resolve address: %v", srv.LocalAddr())
 	}
-	con := New()
+	log := log.NewNop()
+	con := New(log)
 	con.Connect(addr)
 
 	tests := []struct {
@@ -157,7 +161,8 @@ func TestConn_Login(t *testing.T) {
 }
 
 func TestConn_Transmission(t *testing.T) {
-	con := New()
+	log := log.NewNop()
+	con := New(log)
 	con.SetTransmission(0, protocol.Transmission{
 		Packet: []byte("test"),
 	})
@@ -206,7 +211,8 @@ func TestConn_Transmission(t *testing.T) {
 }
 
 func TestConn_Sequence(t *testing.T) {
-	con := New()
+	log := log.NewNop()
+	con := New(log)
 
 	if x := con.Sequence(); x != 0 {
 		t.Error("seq has to be 0, was", x)
@@ -218,7 +224,8 @@ func TestConn_Sequence(t *testing.T) {
 	}
 }
 func TestConn_Pingback(t *testing.T) {
-	con := New()
+	log := log.NewNop()
+	con := New(log)
 
 	if x := con.Pingback(); x != 0 {
 		t.Error("pingback has to be 0, was", x)
@@ -234,7 +241,8 @@ func TestConn_Pingback(t *testing.T) {
 	}
 }
 func TestConn_KeepAlive(t *testing.T) {
-	con := New()
+	log := log.NewNop()
+	con := New(log)
 
 	if x := con.KeepAlive(); x != 0 {
 		t.Error("keepAlive has to be 0, was", x)

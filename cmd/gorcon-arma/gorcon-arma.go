@@ -10,7 +10,6 @@ import (
 	"runtime"
 	"time"
 
-	raven "github.com/getsentry/raven-go"
 	"github.com/kolide/kit/version"
 	bercon "github.com/playnet-public/gorcon-arma/pkg/bercon/client"
 	"github.com/playnet-public/gorcon-arma/pkg/bercon/funcs"
@@ -74,25 +73,33 @@ func main() {
 	defer log.Sync()
 	log.Info("preparing")
 
-	raven.CapturePanicAndWait(func() {
+	err, id := log.Sentry.CapturePanicAndWait(func() {
 		if err := do(log); err != nil {
-			glog.Fatal(err)
-			raven.CaptureErrorAndWait(err, map[string]string{"isFinal": "true"})
+			log.Error("exited", zap.Error(err))
+			log.Sentry.CaptureErrorAndWait(err, map[string]string{"isFinal": "true"})
 		}
 	}, nil)
+	if err != nil {
+		e, ok := err.(error)
+		if ok {
+			log.Error("paniced", zap.String("sentryID", id), zap.Error(e))
+		} else {
+			log.Error("paniced", zap.String("sentryID", id), zap.String("error", fmt.Sprintf("%v", err)))
+		}
+	}
 }
 
 func do(log *log.Logger) (err error) {
 	cfg = getConfig()
 
 	if !*devBuildPtr {
-		raven.SetDSN(cfg.GetString("playnet.sentry"))
-		raven.SetIncludePaths([]string{
+		log.Sentry.SetDSN(cfg.GetString("playnet.sentry"))
+		log.Sentry.SetIncludePaths([]string{
 			"github.com/playnet-public/gorcon-arma/pkg/",
 		})
-		raven.SetRelease(version.Version().Version)
+		log.Sentry.SetRelease(version.Version().Version)
 	}
-
+	panic("test")
 	useSched := cfg.GetBool("scheduler.enabled")
 	useWatch := cfg.GetBool("watcher.enabled")
 	logToConsole := cfg.GetBool("watcher.logToConsole")
@@ -136,7 +143,7 @@ func do(log *log.Logger) (err error) {
 
 	if useRcon {
 		rconQ := make(chan error, 100)
-		client, err = newRcon(rconQ)
+		client, err = newRcon(log, rconQ)
 		if err != nil {
 			return
 		}
@@ -205,7 +212,7 @@ func testCheck(desc string) (status bool, ban *rcon.Ban) {
 	return status, ban
 }
 
-func newRcon(q chan error) (*rcon.Client, error) {
+func newRcon(log *log.Logger, q chan error) (*rcon.Client, error) {
 	beIP := cfg.GetString("arma.ip")
 	bePort := cfg.GetString("arma.port")
 	bePassword := cfg.GetString("arma.password")
@@ -227,7 +234,7 @@ func newRcon(q chan error) (*rcon.Client, error) {
 		KeepAliveTimer:     beKeepAliveTimer,
 		KeepAliveTolerance: beKeepAliveTolerance,
 	}
-	beCl := bercon.New(beCon, beCred)
+	beCl := bercon.New(log, beCon, beCred)
 	rc := rcon.NewClient(
 		beCl.Loop,
 		beCl.Disconnect,

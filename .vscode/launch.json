@@ -16,7 +16,7 @@
             "program": "${workspaceFolder}/cmd/gorcon-arma/gorcon-arma.go",
             "cwd": "${workspaceFolder}",
             "env": {},
-            "args": ["-v=4", "-logtostderr"],
+            "args": ["-v=6", "-debug", "-logtostderr"],
             "showLog": true
         }
     ]

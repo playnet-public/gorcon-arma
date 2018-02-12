@@ -5,22 +5,23 @@ import (
 	"time"
 
 	"github.com/playnet-public/gorcon-arma/pkg/bercon/connection"
+	"github.com/playnet-public/libs/log"
+	"go.uber.org/zap"
 
 	"os"
 
-	raven "github.com/getsentry/raven-go"
-	"github.com/golang/glog"
 	"github.com/playnet-public/gorcon-arma/pkg/bercon/protocol"
 	"github.com/playnet-public/gorcon-arma/pkg/rcon"
 )
 
 //New creates a Client with given Config
-func New(con rcon.Connection, cred rcon.Credentials) *Client {
+func New(log *log.Logger, con rcon.Connection, cred rcon.Credentials) *Client {
 	if con.KeepAliveTimer == 0 {
 		con.KeepAliveTimer = 10 //TODO: Evaluate default value
 	}
 
 	return &Client{
+		log:  log,
 		cfg:  con,
 		cred: cred,
 	}
@@ -30,11 +31,13 @@ func New(con rcon.Connection, cred rcon.Credentials) *Client {
 func (c *Client) Connect() (err error) {
 	c.Lock()
 	defer c.Unlock()
-	c.con = connection.New()
+	c.log.Info("creating new connection", zap.String("server", c.cfg.Addr.String()))
+	c.con = connection.New(c.log)
 	err = c.con.Connect(c.cfg.Addr)
 	if err != nil {
 		return err
 	}
+	c.log.Info("logging in")
 	err = c.con.Login(c.cred.Password)
 	if err != nil {
 		return err
@@ -44,11 +47,6 @@ func (c *Client) Connect() (err error) {
 		c.init = true
 		c.exit = false
 	}
-	return nil
-}
-
-//Connect opens a new Connection to the Server
-func (c *Client) ConnectOld(q chan error) error {
 	return nil
 }
 
@@ -62,11 +60,11 @@ func (c *Client) loop() (err error) {
 	select {
 	case d := <-rd:
 		c.looping = false
-		glog.V(2).Infoln("reader exited with error:", d)
+		c.log.Info("reader exited", zap.Error(d))
 		return d
 	case d := <-wd:
 		c.looping = false
-		glog.V(2).Infoln("writer exited with error:", d)
+		c.log.Info("writer exited", zap.Error(d))
 		return d
 	}
 }
@@ -80,7 +78,7 @@ func (c *Client) Loop(q chan error) error {
 					return
 				}
 				if err := c.Connect(); err != nil {
-					glog.V(2).Info(err)
+					c.log.Info("failed to reconnect", zap.Error(err))
 					//TODO: Add Reconnect Time Setting
 					time.Sleep(time.Second * 3)
 				}
@@ -123,17 +121,17 @@ func (c *Client) AttachChat(w io.Writer) error {
 }
 
 func (c *Client) handleResponse(seq uint32, response []byte, last bool) {
-	glog.V(6).Infoln("Handling Response:", response, string(response))
+	c.log.Debug("handling response", zap.ByteString("response", response))
 	trm, ex := c.con.GetTransmission(seq)
 	if !ex {
 		if len(response) == 0 {
 			se := c.con.Sequence()
 			if se == seq {
-				glog.V(3).Infoln("Received KeepAlive Pingback")
 				c.con.AddPingback()
+				c.log.Debug("received pingback", zap.Int64("count", c.con.KeepAlive()))
 			}
 		} else {
-			glog.Warningf("No Entry in cmdMap for: %v - (%v)", string(response), response)
+			c.log.Warn("no entry in cmdMap", zap.ByteString("response", response))
 		}
 	} else {
 		trail := []byte("\n")
@@ -144,13 +142,12 @@ func (c *Client) handleResponse(seq uint32, response []byte, last bool) {
 		trm.Response = append(trm.Response, trail...)
 		if last {
 			if trm.WriteCloser != nil {
-				glog.V(4).Infoln("Writing", string(trm.Response), "to output")
+				c.log.Debug("writing to output", zap.ByteString("response", trm.Response))
 				trm.WriteCloser.Write(trm.Response)
 				if trm.WriteCloser != os.Stderr && trm.WriteCloser != os.Stdout {
 					err := trm.WriteCloser.Close()
 					if err != nil {
-						glog.Errorln(err)
-						raven.CaptureError(err, map[string]string{"app": "rcon", "module": "client"})
+						c.log.Error("failed to write", zap.ByteString("response", trm.Response), zap.Error(err))
 					}
 				}
 			}

@@ -6,13 +6,16 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/golang/glog"
+	"github.com/playnet-public/libs/log"
+
 	"github.com/playnet-public/gorcon-arma/pkg/bercon/protocol"
 	"github.com/playnet-public/gorcon-arma/pkg/common"
+	"go.uber.org/zap"
 )
 
 // Conn to BattlEye
 type Conn struct {
+	log *log.Logger
 	*net.UDPConn
 	ReadBuffer     []byte
 	seq            uint32
@@ -26,8 +29,9 @@ type Conn struct {
 }
 
 // New Connection to BattlEye
-func New() *Conn {
+func New(log *log.Logger) *Conn {
 	c := &Conn{
+		log:        log,
 		ReadBuffer: make([]byte, 4096),
 	}
 	atomic.StoreUint32(&c.seq, 0)
@@ -60,21 +64,23 @@ func (c *Conn) Login(pass string) (err error) {
 		return common.ErrTimeout
 	}
 	if err != nil {
+		c.log.Error("login failed", zap.Error(err))
 		c.Close()
 		return err
 	}
 
 	response, err := protocol.VerifyLogin(buffer[:n])
 	if err != nil {
+		c.log.Error("login failed", zap.ByteString("response", []byte{response}), zap.Error(err))
 		c.Close()
 		return err
 	}
 	if response == protocol.PacketResponse.LoginFail {
-		glog.Errorln("Non Login Packet Received:", response)
+		c.log.Error("login failed", zap.ByteString("response", []byte{response}), zap.Error(common.ErrInvalidLogin))
 		c.Close()
 		return common.ErrInvalidLogin
 	}
-	glog.Infoln("Login successful")
+	c.log.Info("login successful")
 	return nil
 }
 

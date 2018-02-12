@@ -182,3 +182,12 @@ func (s *sentryEncoder) EncodeEntry(e zapcore.Entry, fields []zapcore.Field) (*b
 	}
 	return buf, nil
 }
+
+func (s *sentryEncoder) AddString(key, val string) {
+	tags := s.Sentry.Tags
+	if tags == nil {
+		tags = make(map[string]string)
+	}
+	tags[key] = val
+	s.Sentry.SetTagsContext(tags)
+}
