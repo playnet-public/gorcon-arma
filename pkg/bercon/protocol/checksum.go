@@ -1,11 +1,9 @@
 package protocol
 
 import (
-	"fmt"
 	"hash/crc32"
 
 	raven "github.com/getsentry/raven-go"
-	"github.com/golang/glog"
 	"github.com/playnet-public/gorcon-arma/pkg/common"
 )
 
@@ -15,12 +13,6 @@ func makeChecksum(data []byte) uint32 {
 
 func getChecksum(data []byte) (c uint32, err error) {
 	c = 0
-	defer func() {
-		if err != nil {
-			raven.CaptureError(fmt.Errorf("%v - Packet: %v", err, string(data)), map[string]string{"app": "rcon", "module": "client"})
-		}
-	}()
-
 	if len(data) < 7 {
 		err = common.ErrInvalidHeaderSize
 		return
@@ -40,7 +32,6 @@ func getChecksum(data []byte) (c uint32, err error) {
 func verifyChecksum(data []byte, checksum uint32) bool {
 	sum := crc32.ChecksumIEEE(data)
 	if sum != checksum {
-		glog.Errorf("verifyChecksum(%v): expected %v got %v", data, sum, checksum)
 		return false
 	}
 	return true
@@ -55,12 +46,10 @@ func verifyChecksumMatch(data []byte) (b bool, err error) {
 	}()
 	checksum, err := getChecksum(data)
 	if err != nil {
-		glog.Errorln("verifyChecksumMatch: failed to get checksum")
 		return false, err
 	}
 	match := verifyChecksum(data[6:], checksum)
 	if !match {
-		glog.Errorln("verifyChecksumMatch: failed at checksum match")
 		return false, common.ErrInvalidChecksum
 	}
 	return true, nil

@@ -35,4 +35,10 @@ var (
 	ErrConnected = errors.New("Client Connected")
 	//ErrKeepAliveAsync .
 	ErrKeepAliveAsync = errors.New("keepAlive packets are out of sync")
+	//ErrUnknownEventType .
+	ErrUnknownEventType = errors.New("unknown event type")
+	//ErrEscalationAttempt .
+	ErrEscalationAttempt = errors.New("escalation attempt")
+	//ErrUnableToParse .
+	ErrUnableToParse = errors.New("unable to parse")
 )

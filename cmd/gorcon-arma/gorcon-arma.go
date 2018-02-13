@@ -30,7 +30,7 @@ import (
 )
 
 const (
-	app                 = "PlayNet GoRcon-ArmA - OpenSource Server Manager"
+	app                 = "GoRcon-ArmA - OpenSource Server Manager"
 	appKey              = "gorcon-arma"
 	parameterMaxprocs   = "maxprocs"
 	parameterConfigPath = "configPath"
@@ -148,7 +148,7 @@ func do(log *log.Logger) (err error) {
 			return
 		}
 
-		rconFuncs := funcs.New(client)
+		rconFuncs := funcs.New(log, client)
 
 		bm := newBanManager()
 		bm.AddCheck(bm.CheckLocal)

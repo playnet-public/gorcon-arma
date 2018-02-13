@@ -8,8 +8,9 @@ import (
 	"regexp"
 	"strconv"
 
-	"github.com/golang/glog"
+	"github.com/playnet-public/gorcon-arma/pkg/common"
 	"github.com/playnet-public/gorcon-arma/pkg/rcon"
+	"go.uber.org/zap"
 )
 
 //RegEx contains all common regular expressions for working with bercon strings
@@ -28,7 +29,7 @@ var RegEx = struct {
 	//connectReg, err := regexp.Compile(`[\S ]+\s#(\d)\s([\S ]+)\s\((\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})?:(\d+\b)\)\s[\S ]+`)
 }
 
-func scanForPlayers(players *rcon.Players, r io.ReadCloser, quit chan error) {
+func (f RconFuncs) scanForPlayers(players *rcon.Players, r io.ReadCloser, quit chan error) {
 	reg, err := regexp.Compile(`(\d+)\s+(\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}):(\d+\b)\s+(\d+)\s+([0-9a-fA-F]+)\(\w+\)\s([\S ]+)`)
 	if err != nil {
 		quit <- err
@@ -36,14 +37,14 @@ func scanForPlayers(players *rcon.Players, r io.ReadCloser, quit chan error) {
 	scanner := bufio.NewScanner(r)
 	for scanner.Scan() {
 		line := scanner.Text()
-		errUnable := fmt.Errorf("unable to parse player: %v", line)
-		glog.V(3).Infoln("Applying Regex onto:", line)
+		errUnable := common.ErrUnableToParse
+		f.log.Debug("applying regex", zap.String("type", "player"), zap.String("line", line))
 		playerInfo := reg.FindStringSubmatch(line)
 		if len(playerInfo) < 1 {
 			continue
 		}
 		playerInfo = playerInfo[1:]
-		glog.V(3).Infoln("Player Matched:", playerInfo)
+		f.log.Debug("player matched", zap.Strings("player", playerInfo))
 		id, err := strconv.Atoi(playerInfo[0])
 		if err != nil {
 			quit <- err
@@ -68,7 +69,7 @@ func scanForPlayers(players *rcon.Players, r io.ReadCloser, quit chan error) {
 	quit <- nil
 }
 
-func scanForBans(bans *rcon.Bans, r io.ReadCloser, quit chan error) {
+func (f RconFuncs) scanForBans(bans *rcon.Bans, r io.ReadCloser, quit chan error) {
 	reg, err := regexp.Compile(`(\d+)\s+(\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}|[0-9a-fA-F]+)\s*([perm|\d]+)\s([\S ]+)`)
 	if err != nil {
 		quit <- err
@@ -76,7 +77,7 @@ func scanForBans(bans *rcon.Bans, r io.ReadCloser, quit chan error) {
 	scanner := bufio.NewScanner(r)
 	for scanner.Scan() {
 		line := scanner.Text()
-		glog.V(3).Infoln("Applying Regex onto:", line)
+		f.log.Debug("applying regex", zap.String("type", "ban"), zap.String("line", line))
 		banInfo := reg.FindStringSubmatch(line)
 		if len(banInfo) < 1 {
 			continue
@@ -85,11 +86,11 @@ func scanForBans(bans *rcon.Bans, r io.ReadCloser, quit chan error) {
 			quit <- fmt.Errorf("Parsing Ban returned invalid length: %v", line)
 		}
 		banInfo = banInfo[1:]
-		glog.V(3).Infoln("Ban Matched:", banInfo)
+		f.log.Debug("ban matched", zap.Strings("ban", banInfo))
 		desc := banInfo[1]
 		banType := "guid"
 		if ip := net.ParseIP(banInfo[1]); ip != nil {
-			glog.V(2).Infoln("Ban detected as IP Ban")
+			f.log.Debug("ip ban detected", zap.Strings("ban", banInfo))
 			banType = "ip"
 		}
 		ban := new(rcon.Ban)

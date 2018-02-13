@@ -1,9 +1,6 @@
 package protocol
 
 import (
-	"fmt"
-
-	raven "github.com/getsentry/raven-go"
 	"github.com/playnet-public/gorcon-arma/pkg/common"
 )
 
@@ -38,11 +35,6 @@ func BuildMsgAckPacket(seq uint32) []byte {
 
 //VerifyPacket checks a package and its contents for errors or tampering
 func VerifyPacket(packet []byte) (seq uint32, data []byte, pckType byte, err error) {
-	defer func() {
-		if err != nil {
-			raven.CaptureError(fmt.Errorf("%v - Packet: %v", err, string(data)), map[string]string{"app": "rcon", "module": "packets"})
-		}
-	}()
 	data, err = stripHeader(packet)
 	if err != nil {
 		return
@@ -67,11 +59,6 @@ func VerifyPacket(packet []byte) (seq uint32, data []byte, pckType byte, err err
 //VerifyLogin checks the login packet
 func VerifyLogin(packet []byte) (b byte, err error) {
 	b = 0
-	defer func() {
-		if err != nil {
-			raven.CaptureError(err, nil)
-		}
-	}()
 	if len(packet) != 9 {
 		err = common.ErrInvalidLoginPacket
 		return b, err
@@ -80,7 +67,6 @@ func VerifyLogin(packet []byte) (b byte, err error) {
 	if match, err = verifyChecksumMatch(packet); match == false || err != nil {
 		return b, err
 	}
-
 	return packet[8], nil
 }
 

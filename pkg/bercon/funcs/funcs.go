@@ -10,19 +10,22 @@ import (
 	"net"
 	"strings"
 
-	raven "github.com/getsentry/raven-go"
-	"github.com/golang/glog"
+	"github.com/playnet-public/gorcon-arma/pkg/common"
 	"github.com/playnet-public/gorcon-arma/pkg/rcon"
+	"github.com/playnet-public/libs/log"
+	"go.uber.org/zap"
 )
 
 //RconFuncs defines a common set of functions that is exported for external use
 type RconFuncs struct {
+	log    *log.Logger
 	Client *rcon.Client
 }
 
 //New RconFuncs Instance
-func New(c *rcon.Client) *RconFuncs {
+func New(log *log.Logger, c *rcon.Client) *RconFuncs {
 	rf := new(RconFuncs)
+	rf.log = log
 	rf.Client = c
 	return rf
 }
@@ -35,7 +38,7 @@ func (f RconFuncs) GetPlayers() ([]*rcon.Player, error) {
 	players := new(rcon.Players)
 	quit := make(chan error)
 
-	go scanForPlayers(players, r, quit)
+	go f.scanForPlayers(players, r, quit)
 
 	//Fetch Player List from RCon
 	err := f.Client.Exec([]byte("players"), w)
@@ -58,7 +61,7 @@ func (f RconFuncs) GetBans() ([]*rcon.Ban, error) {
 	bans := new(rcon.Bans)
 	quit := make(chan error)
 
-	go scanForBans(bans, r, quit)
+	go f.scanForBans(bans, r, quit)
 
 	//Fetch Ban List from RCon
 	err := f.Client.Exec([]byte("bans"), w)
@@ -75,13 +78,13 @@ func (f RconFuncs) GetBans() ([]*rcon.Ban, error) {
 //Ban the passed in Player for duration (in minutes)
 func (f RconFuncs) Ban(p *rcon.Player, duration int64, reason string) error {
 	cmd := fmt.Sprintf("addBan %s %d %s", p.ExtID, duration, reason)
-	glog.V(3).Infoln("Sending RCon Command:", cmd)
+	f.log.Debug("sending command", zap.String("cmd", cmd))
 	err := f.Client.Exec([]byte(cmd), os.Stdout)
 	if err != nil {
 		return err
 	}
 	cmd = fmt.Sprintf("loadBans")
-	glog.V(3).Infoln("Sending RCon Command:", cmd)
+	f.log.Debug("sending command", zap.String("cmd", cmd))
 	return f.Client.Exec([]byte(cmd), os.Stdout)
 }
 
@@ -96,28 +99,28 @@ func (f RconFuncs) MultiBan(bans []*rcon.Ban) error {
 			duration = int64(dur.Minutes())
 		}
 		cmd := fmt.Sprintf("addBan %s %d %s", ban.Descriptor, duration, ban.Reason)
-		glog.V(3).Infoln("Sending RCon Command:", cmd)
+		f.log.Debug("sending command", zap.String("cmd", cmd))
 		err := f.Client.Exec([]byte(cmd), os.Stdout)
 		if err != nil {
 			return err
 		}
 	}
 	cmd := fmt.Sprintf("loadBans")
-	glog.V(3).Infoln("Sending RCon Command:", cmd)
+	f.log.Debug("sending command", zap.String("cmd", cmd))
 	return f.Client.Exec([]byte(cmd), os.Stdout)
 }
 
 //Kick the passed in Player
 func (f RconFuncs) Kick(p *rcon.Player, reason string) error {
 	cmd := fmt.Sprintf("kick %d %s", p.ID, reason)
-	glog.V(3).Infoln("Sending RCon Command:", cmd)
+	f.log.Debug("sending command", zap.String("cmd", cmd))
 	return f.Client.Exec([]byte(cmd), os.Stdout)
 }
 
 //Message the passed in Player
 func (f RconFuncs) Message(p *rcon.Player, msg string) error {
 	cmd := fmt.Sprintf("say %d %s", p.ID, msg)
-	glog.V(3).Infoln("Sending RCon Command:", cmd)
+	f.log.Debug("sending command", zap.String("cmd", cmd))
 	return f.Client.Exec([]byte(cmd), os.Stdout)
 }
 
@@ -142,14 +145,14 @@ func (f RconFuncs) ParsePlayerEvent(s string) (p *rcon.Player, e rcon.PlayerEven
 	case "RCon":
 		e.Type = 7
 	default:
-		err = fmt.Errorf("could not determine event type for %v", s)
-		raven.CaptureError(err, map[string]string{"app": "rcon", "module": "funcs"})
+		err = common.ErrUnknownEventType
+		f.log.Error("unknown event type", zap.String("event", s), zap.Error(err))
 		return
 	}
 
 	pid := -1
 	pidM := RegEx.PlayerID.FindStringSubmatch(s)
-	glog.V(3).Infof("%v - %v", pidM, s)
+	f.log.Debug("parsing playerID", zap.Strings("pid", pidM), zap.String("event", s))
 	if len(pidM) > 1 {
 		pid, err = strconv.Atoi(pidM[1])
 		if err == nil {
@@ -157,13 +160,13 @@ func (f RconFuncs) ParsePlayerEvent(s string) (p *rcon.Player, e rcon.PlayerEven
 		}
 	}
 	guidM := RegEx.GUID.FindStringSubmatch(s)
-	glog.V(3).Infof("%v - %v", guidM, s)
+	f.log.Debug("parsing guid", zap.Strings("guid", guidM), zap.String("event", s))
 	if len(guidM) > 1 {
 		p.ExtID = guidM[1]
 	}
 	if len(guidM) > 2 {
-		err = fmt.Errorf("found multiple guid's in event which might indicate an escalation attempt: %v", guidM)
-		glog.Errorln(err)
+		err = common.ErrEscalationAttempt
+		f.log.Error("multiple guid's in event", zap.Strings("guids", guidM), zap.String("event", s))
 		switch e.Type {
 		case 1:
 			p.ExtID = guidM[len(guidM)-1]
@@ -178,7 +181,7 @@ func (f RconFuncs) ParsePlayerEvent(s string) (p *rcon.Player, e rcon.PlayerEven
 		}
 	}
 	netInf := RegEx.NetInf.FindString(s)
-	glog.V(3).Infof("%v - %v", netInf, s)
+	f.log.Debug("parsing netInf", zap.String("netInf", netInf), zap.String("event", s))
 	netInfA := strings.Split(netInf, ":")
 	if len(netInfA) > 1 {
 		p.IP = net.ParseIP(netInfA[0])

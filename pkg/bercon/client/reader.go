@@ -32,7 +32,7 @@ func (c *Client) readerLoop(ret chan error) {
 		n, err := c.con.Read(c.con.ReadBuffer)
 		if err == nil {
 			data := c.con.ReadBuffer[:n]
-			c.log.Error("received data", zap.ByteString("data", data))
+			c.log.Debug("received data", zap.ByteString("data", data))
 			if herr := c.handlePacket(data); herr != nil {
 				c.log.Error("packet error", zap.Error(herr))
 			}
