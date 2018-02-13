@@ -8,6 +8,7 @@ env:
   - REPO: $TRAVIS_REPO_SLUG
   - VERSION: $TRAVIS_TAG
 install:
+- make deps
 - make check
 - make test || true
 after_success:
