@@ -9,6 +9,7 @@ import (
 
 	"github.com/playnet-public/gorcon-arma/pkg/bercon/protocol"
 	"github.com/playnet-public/libs/log"
+	"github.com/stvp/go-udp-testing"
 )
 
 func TestNew(t *testing.T) {
@@ -156,6 +157,42 @@ func TestConn_Login(t *testing.T) {
 				}
 			}
 			fmt.Println("running next test:", tt.name)
+		})
+	}
+}
+
+func TestConn_WriteAck(t *testing.T) {
+	addr, err := net.ResolveUDPAddr("udp", ":8125")
+	if err != nil {
+		t.Errorf("failed to resolve address: %v", ":8125")
+	}
+	log := log.NewNop()
+	c := New(log)
+	c.Connect(addr)
+	tests := []struct {
+		name    string
+		c       *Conn
+		seq     uint32
+		wantErr bool
+	}{
+		{
+			"ok",
+			c,
+			0,
+			false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			udp.SetAddr(":8125")
+
+			udp.ShouldReceive(t, string(protocol.BuildMsgAckPacket(tt.seq)), func() {
+				err := tt.c.WriteAck(tt.seq)
+				if (err != nil) != tt.wantErr {
+					t.Errorf("Conn.WriteAck() error = %v, wantErr %v", err, tt.wantErr)
+					return
+				}
+			})
 		})
 	}
 }

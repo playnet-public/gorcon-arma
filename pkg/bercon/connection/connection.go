@@ -17,7 +17,7 @@ import (
 type Conn struct {
 	log *log.Logger
 	*net.UDPConn
-	ReadBuffer     []byte
+	readBuffer     []byte
 	seq            uint32
 	keepAliveCount int64
 	pingbackCount  int64
@@ -32,7 +32,7 @@ type Conn struct {
 func New(log *log.Logger) *Conn {
 	c := &Conn{
 		log:        log,
-		ReadBuffer: make([]byte, 4096),
+		readBuffer: make([]byte, 4096),
 	}
 	atomic.StoreUint32(&c.seq, 0)
 	atomic.StoreInt64(&c.keepAliveCount, 0)
@@ -48,6 +48,9 @@ func (c *Conn) Connect(addr *net.UDPAddr) (err error) {
 		c.UDPConn = nil
 		return err
 	}
+	c.SetReadDeadline(time.Now().Add(time.Second * 2)) //Evaluate if Deadline is required
+	c.SetWriteDeadline(time.Now().Add(time.Millisecond * 100))
+
 	return nil
 }
 
@@ -55,10 +58,9 @@ func (c *Conn) Connect(addr *net.UDPAddr) (err error) {
 func (c *Conn) Login(pass string) (err error) {
 	buffer := make([]byte, 9)
 
-	c.SetReadDeadline(time.Now().Add(time.Second * 2))
 	c.Write(protocol.BuildLoginPacket(pass))
 
-	n, err := c.Read(buffer)
+	n, err := c.UDPConn.Read(buffer)
 	if err, ok := err.(net.Error); ok && err.Timeout() {
 		c.Close()
 		return common.ErrTimeout
@@ -82,6 +84,24 @@ func (c *Conn) Login(pass string) (err error) {
 	}
 	c.log.Info("login successful")
 	return nil
+}
+
+// Read from udp and return data or error
+func (c *Conn) Read() ([]byte, error) {
+	n, err := c.UDPConn.Read(c.readBuffer)
+	if err != nil {
+		return []byte(""), err
+	}
+	return c.readBuffer[:n], nil
+}
+
+// WriteAck sends a new AckPacket via UDP
+func (c *Conn) WriteAck(seq uint32) (err error) {
+	_, err = c.Write(protocol.BuildMsgAckPacket(seq))
+	if err != nil {
+		c.log.Debug("write ack error", zap.Error(err))
+	}
+	return err
 }
 
 // GetTransmission from cmd.map
