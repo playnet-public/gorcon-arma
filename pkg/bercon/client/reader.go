@@ -28,74 +28,62 @@ func (c *Client) readerLoop(ret chan error) {
 			return
 		}
 
-		c.con.SetReadDeadline(time.Now().Add(time.Second * 2)) //Evaluate if Deadline is required
-		n, err := c.con.Read(c.con.ReadBuffer)
-		if err == nil {
-			data := c.con.ReadBuffer[:n]
-			c.log.Debug("received data", zap.ByteString("data", data))
-			if herr := c.handlePacket(data); herr != nil {
-				c.log.Error("packet error", zap.Error(herr))
-			}
-			//TODO: Evaluate if parallel approach is better
-			//go c.handlePacket(data)
+		data, err := c.con.Read()
+		if err, ok := err.(net.Error); ok && err.Timeout() {
+			c.log.Debug("timeout", zap.Error(err))
+			continue
 		}
 		if err != nil {
-			if err, _ := err.(net.Error); err.Timeout() {
-				c.log.Debug("timeout", zap.Error(err))
-				continue
-			} else {
-				c.log.Debug("read error", zap.Error(err))
-				return
-			}
+			c.log.Error("read error", zap.Error(err))
+			return
 		}
+
+		c.log.Debug("received data", zap.ByteString("data", data))
+		if err := c.handlePacket(data); err != nil {
+			c.log.Error("packet error", zap.Error(err))
+		}
+		//TODO: Evaluate if parallel approach is better
+		//go c.handlePacket(data)
 
 	}
 }
 
-func (c *Client) handlePacket(packet []byte) error {
+func (c *Client) handlePacket(packet []byte) (err error) {
 	seq, data, pType, err := protocol.VerifyPacket(packet)
 	if err != nil {
-		c.log.Debug("verify packet error", zap.Error(err))
+		c.log.Debug("verify packet error", zap.ByteString("packet", packet), zap.Error(err))
 		return err
 	}
 
-	// Handle Packet Types
-	if pType == protocol.PacketType.ServerMessage {
-		c.log.Debug("server message", zap.Uint32("seq", seq), zap.ByteString("data", data))
-		c.handleServerMessage(append(data[3:], []byte("\n")...))
-		if c.con.UDPConn != nil {
-			c.con.SetWriteDeadline(time.Now().Add(time.Millisecond * 100))
-			_, err := c.con.Write(protocol.BuildMsgAckPacket(seq))
-			if err != nil {
-				c.log.Debug("write ack error", zap.Error(err))
-				return err
-			}
-		}
-		return nil
-	}
+	switch pType {
+	case protocol.PacketType.ServerMessage:
+		return c.handleServerMessage(seq, data)
 
-	if pType != protocol.PacketType.Command && pType != protocol.PacketType.MultiCommand {
+	case protocol.PacketType.Command:
+		c.handleResponse(seq, data[3:], true)
+		return nil
+
+	case protocol.PacketType.MultiCommand:
+		return c.handleMultiPacket(seq, data)
+
+	default:
 		c.log.Debug("unknown packet", zap.Uint8("type", pType), zap.ByteString("packet", packet))
 		return common.ErrUnknownPacketType
 	}
+	return common.ErrUnknownPacketType
+}
 
-	packetCount, currentPacket, isMultiPacket := protocol.CheckMultiPacketResponse(data)
-	c.log.Debug("packet received", zap.Uint32("seq", seq), zap.Bool("multi", isMultiPacket), zap.ByteString("packet", data))
-	if !isMultiPacket {
-		c.handleResponse(seq, data[3:], true)
-		return nil
-	}
-
-	if currentPacket+1 < packetCount {
-		c.handleResponse(seq, data[6:], false)
-	} else {
-		c.handleResponse(seq, data[6:], true)
-	}
-
+func (c *Client) handleMultiPacket(seq uint32, data []byte) error {
+	packetCount, currentPacket, isSingle := protocol.CheckMultiPacketResponse(data)
+	c.log.Debug("packet received", zap.Uint32("seq", seq), zap.Bool("single", isSingle), zap.ByteString("packet", data))
+	last := (currentPacket+1 >= packetCount)
+	c.handleResponse(seq, data[6:], last)
 	return nil
 }
 
-func (c *Client) handleServerMessage(data []byte) {
+func (c *Client) handleServerMessage(seq uint32, data []byte) error {
+	c.log.Debug("server message", zap.Uint32("seq", seq), zap.ByteString("data", data))
+	data = append(data[3:], []byte("\n")...)
 	var ChatPatterns = []string{
 		"(Group)",
 		"(Vehicle)",
@@ -111,7 +99,7 @@ func (c *Client) handleServerMessage(data []byte) {
 				}
 				c.chatWriter.Unlock()
 			}
-			return
+			return c.con.WriteAck(seq)
 		}
 	}
 	if c.eventWriter.Writer != nil {
@@ -124,4 +112,5 @@ func (c *Client) handleServerMessage(data []byte) {
 		}
 		c.eventWriter.Unlock()
 	}
+	return c.con.WriteAck(seq)
 }
