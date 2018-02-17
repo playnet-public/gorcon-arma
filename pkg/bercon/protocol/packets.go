@@ -71,12 +71,13 @@ func VerifyLogin(packet []byte) (b byte, err error) {
 }
 
 //CheckMultiPacketResponse checks whether a packet is part of a multiPacketResponse
+// Returns: packetCount, currentPacket and isSingle
 func CheckMultiPacketResponse(data []byte) (byte, byte, bool) {
 	if len(data) < 3 {
-		return 0, 0, false
+		return 0, 0, true
 	}
 	if data[0] != 0x01 || data[2] != 0x00 {
-		return 0, 0, false
+		return 0, 0, true
 	}
-	return data[3], data[4], true
+	return data[3], data[4], false
 }

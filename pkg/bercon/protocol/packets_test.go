@@ -138,21 +138,21 @@ func TestCheckMultiPacketResponse(t *testing.T) {
 			[]byte{1, 0, 116, 101, 115, 99, 109, 100},
 			0,
 			0,
-			false,
+			true,
 		},
 		{
 			"invalid_data",
 			[]byte{1, 0},
 			0,
 			0,
-			false,
+			true,
 		},
 		{
 			"multi_packet",
 			[]byte{1, 1, 0, 4, 3, 99, 109, 100},
 			4,
 			3,
-			true,
+			false,
 		},
 	}
 	for _, tt := range tests {
