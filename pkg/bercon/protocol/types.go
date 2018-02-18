@@ -7,6 +7,7 @@ import (
 	"github.com/playnet-public/gorcon-arma/pkg/common"
 )
 
+// Transmission containing a full bercon conversation
 type Transmission struct {
 	Packet      []byte
 	Command     []byte
