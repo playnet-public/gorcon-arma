@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"github.com/playnet-public/gorcon-arma/pkg/bercon/protocol"
-	"github.com/playnet-public/gorcon-arma/pkg/common"
 	"go.uber.org/zap"
 )
 
@@ -13,19 +12,8 @@ func (c *Client) writerLoop(ret chan error, cmd chan protocol.Transmission) {
 	c.RLock()
 	defer c.RUnlock()
 	defer func() { ret <- err }()
-	for {
+	for c.con == nil {
 		c.log.Debug("looping writer")
-		if !c.looping {
-			c.log.Info("loop exited", zap.String("loop", "writer"))
-			return
-		}
-		if c.con.UDPConn == nil {
-			c.log.Error("invalid connection", zap.Error(common.ErrConnectionNil))
-			err = common.ErrConnectionNil
-			return
-		}
-
-		timeout := time.After(time.Second * time.Duration(c.cfg.KeepAliveTimer))
 
 		select {
 		case trm := <-cmd:
@@ -35,32 +23,15 @@ func (c *Client) writerLoop(ret chan error, cmd chan protocol.Transmission) {
 				c.log.Error("write command error", zap.ByteString("command", trm.Command), zap.Error(err))
 				return
 			}
-		case <-timeout:
-			if c.con.UDPConn != nil {
-				c.log.Debug("sending keepalive", zap.Int64("count", c.con.KeepAlive()))
-				c.con.SetWriteDeadline(time.Now().Add(time.Millisecond * 100))
-				_, err = c.con.Write(protocol.BuildKeepAlivePacket(c.con.Sequence()))
-				if err != nil {
-					c.log.Error("send keepalive error", zap.Error(err))
-					return
-				}
-				c.con.AddKeepAlive()
-				keepAliveCount := c.con.KeepAlive()
-				pingbackCount := c.con.Pingback()
-				if diff := keepAliveCount - pingbackCount; diff > c.cfg.KeepAliveTolerance || diff < c.cfg.KeepAliveTolerance*-1 {
-					err = common.ErrKeepAliveAsync
-					c.log.Error("keepalive out of sync", zap.Int64("count", diff))
-					return
-				}
-				// Experimental change to check if growing count is causing performance leak
-				//TODO: Evaluate if this is still required
-				/*if keepAliveCount > 20 {
-					c.con.ResetPingback()
-					c.con.ResetKeepAlive()
-				}*/
+		case <-time.After(time.Second * time.Duration(c.cfg.KeepAliveTimer)):
+			err = c.KeepAlive(c.con.Sequence())
+			if err != nil {
+				c.log.Error("write keepalive error", zap.Uint32("seq", c.con.Sequence()), zap.Error(err))
+				return
 			}
 		}
 	}
+	c.log.Info("loop exited", zap.String("loop", "writer"))
 }
 
 func (c *Client) writeCommand(trm protocol.Transmission) error {

@@ -88,6 +88,10 @@ func (c *Conn) Login(pass string) (err error) {
 
 // Read from udp and return data or error
 func (c *Conn) Read() ([]byte, error) {
+	if c.UDPConn == nil {
+		c.log.Error("connection nil", zap.Error(common.ErrConnectionNil))
+		return nil, common.ErrConnectionNil
+	}
 	n, err := c.UDPConn.Read(c.readBuffer)
 	if err != nil {
 		return []byte(""), err
@@ -97,9 +101,26 @@ func (c *Conn) Read() ([]byte, error) {
 
 // WriteAck sends a new AckPacket via UDP
 func (c *Conn) WriteAck(seq uint32) (err error) {
+	if c.UDPConn == nil {
+		c.log.Error("connection nil", zap.Error(common.ErrConnectionNil))
+		return common.ErrConnectionNil
+	}
 	_, err = c.Write(protocol.BuildMsgAckPacket(seq))
 	if err != nil {
-		c.log.Debug("write ack error", zap.Error(err))
+		c.log.Debug("write ack error", zap.Uint32("seq", seq), zap.Error(err))
+	}
+	return err
+}
+
+// WriteKeepAlive sends a new KeepAlivePacket via UDP
+func (c *Conn) WriteKeepAlive(seq uint32) (err error) {
+	if c.UDPConn == nil {
+		c.log.Error("connection nil", zap.Error(common.ErrConnectionNil))
+		return common.ErrConnectionNil
+	}
+	_, err = c.Write(protocol.BuildKeepAlivePacket(seq))
+	if err != nil {
+		c.log.Debug("write keepalive error", zap.Uint32("seq", seq), zap.Error(err))
 	}
 	return err
 }

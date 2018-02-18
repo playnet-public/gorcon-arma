@@ -197,6 +197,42 @@ func TestConn_WriteAck(t *testing.T) {
 	}
 }
 
+func TestConn_WriteKeepAlive(t *testing.T) {
+	addr, err := net.ResolveUDPAddr("udp", ":8125")
+	if err != nil {
+		t.Errorf("failed to resolve address: %v", ":8125")
+	}
+	log := log.NewNop()
+	c := New(log)
+	c.Connect(addr)
+	tests := []struct {
+		name    string
+		c       *Conn
+		seq     uint32
+		wantErr bool
+	}{
+		{
+			"ok",
+			c,
+			0,
+			false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			udp.SetAddr(":8125")
+
+			udp.ShouldReceive(t, string(protocol.BuildKeepAlivePacket(tt.seq)), func() {
+				err := tt.c.WriteKeepAlive(tt.seq)
+				if (err != nil) != tt.wantErr {
+					t.Errorf("Conn.WriteKeepAlive() error = %v, wantErr %v", err, tt.wantErr)
+					return
+				}
+			})
+		})
+	}
+}
+
 func TestConn_Transmission(t *testing.T) {
 	log := log.NewNop()
 	con := New(log)

@@ -15,13 +15,8 @@ func (c *Client) readerLoop(ret chan error) {
 	c.RLock()
 	defer c.RUnlock()
 	defer func() { ret <- err }()
-	for {
+	for c.con != nil {
 		c.log.Debug("looping reader")
-		if !c.looping {
-			c.log.Info("loop exited", zap.String("loop", "reader"))
-			//TODO: Should we place some error return here?
-			return
-		}
 		if c.con.UDPConn == nil {
 			c.log.Error("invalid connection", zap.Error(common.ErrConnectionNil))
 			err = common.ErrConnectionNil
@@ -46,6 +41,7 @@ func (c *Client) readerLoop(ret chan error) {
 		//go c.handlePacket(data)
 
 	}
+	c.log.Info("loop exited", zap.String("loop", "reader"))
 }
 
 func (c *Client) handlePacket(packet []byte) (err error) {

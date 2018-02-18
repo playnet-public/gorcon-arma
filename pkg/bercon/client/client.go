@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/playnet-public/gorcon-arma/pkg/bercon/connection"
+	"github.com/playnet-public/gorcon-arma/pkg/common"
 	"github.com/playnet-public/libs/log"
 	"go.uber.org/zap"
 
@@ -117,6 +118,24 @@ func (c *Client) AttachChat(w io.Writer) error {
 	c.chatWriter.Lock()
 	c.chatWriter.Writer = w
 	c.chatWriter.Unlock()
+	return nil
+}
+
+// KeepAlive the client's current connection
+func (c *Client) KeepAlive(seq uint32) (err error) {
+	c.log.Debug("sending keepalive", zap.Int64("count", c.con.KeepAlive()))
+	err = c.con.WriteKeepAlive(c.con.Sequence())
+	if err != nil {
+		c.log.Error("send keepalive error", zap.Uint32("seq", seq), zap.Error(err))
+		return err
+	}
+	c.con.AddKeepAlive()
+	diff := c.con.KeepAlive() - c.con.Pingback()
+	if diff > c.cfg.KeepAliveTolerance || diff < c.cfg.KeepAliveTolerance*-1 {
+		err = common.ErrKeepAliveAsync
+		c.log.Error("keepalive out of sync", zap.Int64("count", diff))
+		return err
+	}
 	return nil
 }
 
