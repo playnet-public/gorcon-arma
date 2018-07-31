@@ -112,7 +112,7 @@ We also happily invite you to join us on [Slack](https://playnet-ihtjamcsba.now.
         "path": "D:/Program Files (x86)/Steam/SteamApps/common/Arma 3/arma3server.exe", 
         "params": [
             "-name=goTest",
-            "-port-2303"
+            "-port=2303"
         ],
         "logToFile": true,
         "logFolder": "logs",
